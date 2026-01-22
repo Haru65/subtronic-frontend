@@ -97,11 +97,12 @@
         </div>
       </div>
     </div>
-
     <!-- Filters and Data Table Section -->
     <div class="card mb-4">
       <div class="card-header">
-        <h3 class="card-title">Telemetry Data</h3>
+        <div class="d-flex align-items-center">
+          <h3 class="card-title mb-0">Telemetry Data</h3>
+        </div>
         <div class="card-toolbar">
           <div class="d-flex align-items-center gap-3 flex-wrap">
             <select 
@@ -114,6 +115,18 @@
               <option v-for="device in devices" :key="device.deviceId" :value="device.deviceId">
                 {{ device.name }} ({{ device.deviceId }})
               </option>
+            </select>
+            <select 
+              v-model="selectedMode" 
+              @change="loadTelemetryData"
+              class="form-select form-select-sm" 
+              style="width: 150px;"
+            >
+              <option value="">All Modes</option>
+              <option value="NORMAL">NORMAL</option>
+              <option value="INT">INT</option>
+              <option value="DPOL">DPOL</option>
+              <option value="INST">INST</option>
             </select>
             <input 
               v-model="startDate" 
@@ -168,33 +181,108 @@
         <div v-else>
           <!-- Data Table with Horizontal Scroll Container -->
           <div style="max-height: 600px; overflow-y: auto; overflow-x: auto;">
-            <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4" style="min-width: 1200px; margin-bottom: 0;">
+            <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-1" style="min-width: 2000px; margin-bottom: 0;">
               <thead style="position: sticky; top: 0; z-index: 10;">
-                <tr class="fw-bold text-muted bg-light">
-                  <th class="ps-4" style="min-width: 130px; position: sticky; left: 0; background: #f3f6f9; z-index: 11;">Device ID</th>
-                  <th style="min-width: 160px;">Timestamp</th>
-                  <th style="min-width: 110px;">Event</th>
-                  <th style="min-width: 130px;" v-for="field in dataFields" :key="field">
-                    {{ formatFieldName(field) }}
-                  </th>
+                <tr class="fw-bold text-muted bg-light text-nowrap">
+                  <th class="ps-4 py-3" style="min-width: 100px; position: sticky; left: 0; background: #f3f6f9; z-index: 11;">Device ID</th>
+                  <th class="py-3" style="min-width: 120px;">Location</th>
+                  <th class="py-3" style="min-width: 80px;">Status</th>
+                  <th class="py-3" style="min-width: 80px;">Log No</th>
+                  <th class="py-3" style="min-width: 160px;">Timestamp</th>
+                  <th class="py-3" style="min-width: 70px;">Mode</th>
+                  <th class="py-3" style="min-width: 70px;">ACV</th>
+                  <th class="py-3" style="min-width: 70px;">ACI</th>
+                  <th class="py-3" style="min-width: 70px;">DCV</th>
+                  <th class="py-3" style="min-width: 70px;">DCI</th>
+                  <th class="py-3" style="min-width: 70px;">Ref 1</th>
+                  <th class="py-3" style="min-width: 70px;">Ref 2</th>
+                  <th class="py-3" style="min-width: 70px;">Ref 3</th>
+                  <th class="py-3" style="min-width: 70px;">DI 1</th>
+                  <th class="py-3" style="min-width: 70px;">DI 2</th>
+                  <th class="py-3" style="min-width: 70px;">DI 3</th>
+                  <th class="py-3" style="min-width: 70px;">DI 4</th>
+                  <th class="py-3" style="min-width: 70px;">DO</th>
+                  <th class="py-3" style="min-width: 80px;">Latitude</th>
+                  <th class="py-3" style="min-width: 80px;">Longitude</th>
+                  <th class="py-3" style="min-width: 100px;">Ref Status 1</th>
+                  <th class="py-3" style="min-width: 100px;">Ref Status 2</th>
+                  <th class="py-3" style="min-width: 100px;">Ref Status 3</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="record in displayedData" :key="record._id">
-                  <td class="ps-4" style="position: sticky; left: 0; z-index: 9;">
+                <tr v-for="record in displayedData" :key="record._id" style="height: auto;">
+                  <td class="ps-4 py-1" style="position: sticky; left: 0; z-index: 9;">
                     <span class="badge badge-light-primary">{{ record.deviceId }}</span>
                   </td>
-                  <td>
-                    <div class="d-flex flex-column">
+                  <td class="py-1;">
+                    <span v-if="record.location" class="text-muted small">{{ formatLocation(record.location) }}</span>
+                    <span v-else class="text-muted small">-</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'status')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'logNo') || getDataField(record, 'log') || getDataField(record, 'LOG')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <div class="d-flex flex-column" style="gap: 0;">
                       <span class="fw-bold">{{ formatDate(record.timestamp) }}</span>
                       <span class="text-muted fs-7">{{ formatTime(record.timestamp) }}</span>
                     </div>
                   </td>
-                  <td>
-                    <span :class="getEventBadgeClass(record.event)">{{ record.event }}</span>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(record.event) }}</span>
                   </td>
-                  <td v-for="field in dataFields" :key="field">
-                    {{ formatDataValue(getDataField(record, field)) }}
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'acv') || getDataField(record, 'ACV')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'aci') || getDataField(record, 'ACI')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'dcv') || getDataField(record, 'DCV')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'dci') || getDataField(record, 'DCI')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref1') || getDataField(record, 'REF1')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref2') || getDataField(record, 'REF2')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref3') || getDataField(record, 'REF3')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di1') || getDataField(record, 'Digital Input 1')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di2') || getDataField(record, 'Digital Input 2')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di3') || getDataField(record, 'Digital Input 3')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di4') || getDataField(record, 'Digital Input 4')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'do') || getDataField(record, 'Digital Output')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'latitude') || getDataField(record, 'lat') || getDataField(record, 'LATITUDE')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'longitude') || getDataField(record, 'long') || getDataField(record, 'LONGITUDE')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref1Status') || getDataField(record, 'REF1Status') || getDataField(record, 'REF1 STS')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref2Status') || getDataField(record, 'REF2Status') || getDataField(record, 'REF2 STS')) }}</span>
+                  </td>
+                  <td class="py-1;">
+                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref3Status') || getDataField(record, 'REF3Status') || getDataField(record, 'REF3 STS')) }}</span>
                   </td>
                 </tr>
               </tbody>
@@ -217,15 +305,14 @@
     <!-- Charts Section -->
     <div class="row g-4">
       <div class="col-lg-12">
-        <TemperatureHumidityChart
+        <DeviceParametersChart
           widget-classes="card-xl-stretch mb-4"
-          :height="300"
-        />
-      </div>
-      <div class="col-lg-12">
-        <EnergyConsumption
-          widget-classes="card-xl-stretch mb-4"
-          :height="300"
+          :height="400"
+          :deviceFilter="selectedDevice"
+          :telemetryData="telemetryData"
+          :dateRange="{ startDate, endDate }"
+          :isLoading="loading"
+          @deviceFilterChange="onChartDeviceFilterChange"
         />
       </div>
     </div>
@@ -240,14 +327,13 @@ import axios from "axios";
 import Swal from "sweetalert2";
 import { useAuthStore } from "@/stores/auth";
 import ApiService from "@/core/services/ApiService";
-import TemperatureHumidityChart from "./TemperatureHumidityChart.vue";
-import EnergyConsumption from "./EnergyConsumption.vue";
+import DeviceParametersChart from "@/components/iot/component/dashboard/DeviceParametersChart.vue";
+import { reverseGeocode } from "@/utils/reverseGeocode";
 
 export default defineComponent({
   name: "reports",
   components: {
-    TemperatureHumidityChart,
-    EnergyConsumption,
+    DeviceParametersChart,
   },
   setup() {
     const exportLoading = ref(false);
@@ -258,9 +344,18 @@ export default defineComponent({
     const telemetryData = ref<any[]>([]);
     const devices = ref<any[]>([]);
     const selectedDevice = ref('');
+    const selectedMode = ref(''); // Filter for mode types: '', 'NORMAL', 'INT', 'DEPOL', 'INST' (DEPOL is primary variant)
+    const selectedEventFilter = ref(''); // Filter for event types: '', 'NORMAL', 'INT', 'DEPOL', 'INST' (DEPOL is primary variant)
     const startDate = ref(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     const endDate = ref(new Date().toISOString().split('T')[0]);
     const dataLimit = ref(100);
+    const locationCache = ref<Map<string, string>>(new Map());
+    
+    // Persistent storage for event-type records (accumulate data instead of just filtering)
+    const persistentNormalEvents = ref<any[]>([]);
+    const persistentDpolEvents = ref<any[]>([]);
+    const persistentIntEvents = ref<any[]>([]);
+    const persistentInstEvents = ref<any[]>([]);
 
     // Computed properties
     const totalRecords = computed(() => telemetryData.value.length);
@@ -278,19 +373,331 @@ export default defineComponent({
       return new Date().toLocaleTimeString();
     });
 
-    // Get all unique data fields from telemetry records
+    // Get all unique data fields from telemetry records (now flattened at top level)
     const dataFields = computed(() => {
+      // Define the desired column order - EXACT ORDER AS SPECIFIED
+      const desiredOrder = [
+        'location', 'status', 'logNo', 'log', 'timestamp', 'mode',
+        'acv', 'aci', 'dcv', 'dci',
+        'ref1', 'ref2', 'ref3',
+        'di1', 'di2', 'di3', 'di4', 'do',
+        'latitude', 'longitude', 'lat', 'long',
+        'ref1Status', 'ref2Status', 'ref3Status',
+        'REF1Status', 'REF2Status', 'REF3Status'
+      ];
+      
       const fields = new Set<string>();
+      const fixedFields = new Set([
+        '_id', 'deviceId', 'timestamp', 'event', 'status', 'location',
+        'name', 'type', 'lastSeen', '__v', 'createdAt', 'updatedAt',
+        'data', // Explicitly exclude the data field itself
+        'sn', 'SN', 'LATITUDE', 'LONGITUDE', // Exclude serial number fields
+        'sender' // Exclude sender field
+      ]);
+      
+      // Extract all dynamic fields from records
       telemetryData.value.forEach(record => {
-        if (record.data) {
-          const dataObj = record.data instanceof Map ? Object.fromEntries(record.data) : record.data;
-          Object.keys(dataObj).forEach(key => fields.add(key));
-        }
+        Object.keys(record).forEach(key => {
+          // Include any field that's not a fixed system field
+          if (!fixedFields.has(key) && !key.startsWith('_') && record[key] !== undefined) {
+            fields.add(key);
+          }
+        });
       });
-      return Array.from(fields).sort();
+      
+      // Create case-insensitive lookup for matching
+      const fieldMap = new Map<string, string>();
+      fields.forEach(field => {
+        fieldMap.set(field.toLowerCase(), field);
+      });
+      
+      // Create ordered result with desired order first
+      const orderedFields: string[] = [];
+      const addedFields = new Set<string>();
+      
+      // Add fields in desired order (case-insensitive matching)
+      for (const desiredField of desiredOrder) {
+        const actualField = fieldMap.get(desiredField.toLowerCase());
+        if (actualField && !addedFields.has(actualField)) {
+          orderedFields.push(actualField);
+          addedFields.add(actualField);
+        }
+      }
+      
+      // Add any remaining fields that weren't in the desired order
+      const remainingFields = Array.from(fields)
+        .filter(field => !addedFields.has(field) && field.toLowerCase() !== 'sender' && field.toLowerCase() !== 'event')
+        .sort();
+      
+      console.log('📊 Detected telemetry fields:', Array.from(fields).sort());
+      console.log('📊 Field order applied:', orderedFields);
+      
+      return orderedFields.concat(remainingFields);
     });
 
-    const displayedData = computed(() => telemetryData.value.slice(0, dataLimit.value));
+    const displayedData = computed(() => {
+      // CRITICAL FIX: Filter FIRST, then apply data limit
+      // This ensures that when you select a mode, you get results across the entire dataset
+      // not just from the first N records
+      
+      // Debug: Log unique events in current data
+      if (telemetryData.value.length > 0) {
+        const uniqueEvents = [...new Set(telemetryData.value.map(r => r.event))];
+        console.log(`📊 Unique events in loaded data (${telemetryData.value.length} records): ${uniqueEvents.join(', ')}`);
+        
+        // Count events by type
+        const counts = {
+          NORMAL: 0,
+          INT: 0,
+          DPOL: 0,
+          INST: 0,
+          OTHER: 0
+        };
+        telemetryData.value.forEach(record => {
+          const evt = String(record.event || '').toUpperCase();
+          if (evt === 'NORMAL') counts.NORMAL++;
+          else if (evt.includes('INT')) counts.INT++;
+          else if (evt.includes('DPOL') || evt.includes('DEPOL')) counts.DPOL++;
+          else if (evt.includes('INST')) counts.INST++;
+          else counts.OTHER++;
+        });
+        console.log(`📊 Event distribution: NORMAL=${counts.NORMAL}, INT=${counts.INT}, DPOL=${counts.DPOL}, INST=${counts.INST}, OTHER=${counts.OTHER}`);
+      }
+      
+      let filtered = telemetryData.value;
+      
+      // Filter by mode/event type if selected (BEFORE applying data limit)
+      if (selectedMode.value && selectedMode.value.trim() !== '') {
+        filtered = filtered.filter(record => {
+          const event = record.event;
+          const eventNum = Number(event);
+          const eventStr = String(event || '').toUpperCase().trim();
+          const modeUpper = selectedMode.value.toUpperCase().trim();
+          
+          // DEBUG: Log the first few filtering attempts
+          if (filtered.length < 5) {
+            console.log(`🔍 Checking record event="${event}" (str="${eventStr}", num=${eventNum}) against filter="${modeUpper}"`);
+          }
+          
+          // Match based on selected mode
+          // Handle both numeric codes and string event values (e.g., "INST OFF", "INT ON", "DPOL", "NORMAL")
+          if (modeUpper === 'NORMAL') {
+            return eventNum === 0 || 
+                   event === 0 || 
+                   event === '0' || 
+                   eventStr === 'NORMAL' ||
+                   eventStr.startsWith('NORMAL');
+          } else if (modeUpper === 'INT') {
+            // Match: 1, '1', "INT", "INT ON", "INT OFF", "INTERRUPT"
+            return eventNum === 1 || 
+                   event === 1 || 
+                   event === '1' || 
+                   eventStr === 'INT' ||
+                   eventStr.startsWith('INT') || 
+                   eventStr === 'INTERRUPT' ||
+                   eventStr.startsWith('INTERRUPT');
+          } else if (modeUpper === 'DPOL') {
+            // Match: 3, '3', "DEPOL", "DPOL" (both variants from device)
+            // CRITICAL: Accept both DPOL and DEPOL since device may send either
+            return eventNum === 3 || 
+                   event === 3 || 
+                   event === '3' || 
+                   eventStr === 'DPOL' || 
+                   eventStr === 'DEPOL' ||
+                   eventStr.startsWith('DPOL') ||
+                   eventStr.startsWith('DEPOL');
+          } else if (modeUpper === 'INST') {
+            // Match: 4, '4', "INST", "INST ON", "INST OFF", "INSTANT"
+            return eventNum === 4 || 
+                   event === 4 || 
+                   event === '4' || 
+                   eventStr === 'INST' ||
+                   eventStr.startsWith('INST') || 
+                   eventStr === 'INSTANT' ||
+                   eventStr.startsWith('INSTANT');
+          }
+          
+          return true;
+        });
+        console.log(`🔍 Mode filter "${selectedMode.value}": ${filtered.length} records matched from ${telemetryData.value.length} total`);
+        
+        // DEBUG: Log unique events in filtered results
+        if (filtered.length > 0) {
+          const uniqueFilteredEvents = [...new Set(filtered.map(r => r.event))];
+          console.log(`📊 Unique events in filtered results: ${uniqueFilteredEvents.join(', ')}`);
+        }
+      }
+      
+      // NOW apply the data limit to the filtered results
+      return filtered.slice(0, dataLimit.value);
+    });
+
+    // Helper function to accumulate new events without duplicates
+    const accumulateEvents = (events: any[], newRecords: any[]) => {
+      const existingIds = new Set(events.map(e => e._id));
+      const uniqueNewRecords = newRecords.filter(r => !existingIds.has(r._id));
+      return [...events, ...uniqueNewRecords];
+    };
+
+    // Event filtering computed properties with persistent storage
+    const normalEvents = computed(() => {
+      // Filter new normal events from current telemetry data
+      const newNormalEvents = telemetryData.value.filter(record => {
+        const event = record.event;
+        const eventNum = Number(event);
+        const eventStr = String(event || '').toUpperCase().trim();
+        // Event code 0 = Normal
+        return eventNum === 0 || 
+               event === 0 || 
+               event === '0' || 
+               eventStr === 'NORMAL' ||
+               eventStr.startsWith('NORMAL');
+      });
+      
+      // Accumulate without duplicates
+      persistentNormalEvents.value = accumulateEvents(persistentNormalEvents.value, newNormalEvents);
+      return persistentNormalEvents.value;
+    });
+
+    const dpolEvents = computed(() => {
+      // Filter new dpol events from current telemetry data
+      const newDpolEvents = telemetryData.value.filter(record => {
+        const event = record.event;
+        const eventNum = Number(event);
+        const eventStr = String(event || '').toUpperCase().trim();
+        // Event code 3 = DPOL/DEPOL (accept both variants)
+        return eventNum === 3 || 
+               event === 3 || 
+               event === '3' || 
+               eventStr === 'DPOL' || 
+               eventStr === 'DEPOL' ||
+               eventStr.startsWith('DPOL') ||
+               eventStr.startsWith('DEPOL');
+      });
+      
+      if (newDpolEvents.length > 0) {
+        console.log(`📊 Found ${newDpolEvents.length} DPOL events in telemetry data`);
+      }
+      
+      // Accumulate without duplicates
+      persistentDpolEvents.value = accumulateEvents(persistentDpolEvents.value, newDpolEvents);
+      return persistentDpolEvents.value;
+    });
+
+    const intEvents = computed(() => {
+      // Filter new int events from current telemetry data
+      const newIntEvents = telemetryData.value.filter(record => {
+        const event = record.event;
+        const eventNum = Number(event);
+        const eventStr = String(event || '').toUpperCase().trim();
+        // Event code 1 = INT/Interrupt (includes "INT ON", "INT OFF", etc.)
+        return eventNum === 1 || 
+               event === 1 || 
+               event === '1' || 
+               eventStr === 'INT' ||
+               eventStr.startsWith('INT') || 
+               eventStr === 'INTERRUPT' ||
+               eventStr.startsWith('INTERRUPT');
+      });
+      
+      // Accumulate without duplicates
+      persistentIntEvents.value = accumulateEvents(persistentIntEvents.value, newIntEvents);
+      return persistentIntEvents.value;
+    });
+
+    const instEvents = computed(() => {
+      // Filter new inst events from current telemetry data
+      const newInstEvents = telemetryData.value.filter(record => {
+        const event = record.event;
+        const eventNum = Number(event);
+        const eventStr = String(event || '').toUpperCase().trim();
+        // Event code 4 = Instant/INST (includes "INST ON", "INST OFF", etc.)
+        return eventNum === 4 || 
+               event === 4 || 
+               event === '4' || 
+               eventStr === 'INST' ||
+               eventStr.startsWith('INST') || 
+               eventStr === 'INSTANT' ||
+               eventStr.startsWith('INSTANT');
+      });
+      
+      if (newInstEvents.length > 0) {
+        console.log(`📊 Found ${newInstEvents.length} INST events in telemetry data`);
+      }
+      
+      // Accumulate without duplicates
+      persistentInstEvents.value = accumulateEvents(persistentInstEvents.value, newInstEvents);
+      return persistentInstEvents.value;
+    });
+
+    // Filter events based on selectedEventFilter
+    const filteredEvents = computed(() => {
+      const filterValue = selectedEventFilter.value.toUpperCase();
+      
+      if (filterValue === '') {
+        // Return all events
+        return [...persistentNormalEvents.value, ...persistentDpolEvents.value, ...persistentIntEvents.value, ...persistentInstEvents.value];
+      } else if (filterValue === 'NORMAL') {
+        return persistentNormalEvents.value;
+      } else if (filterValue === 'DPOL') {
+        return persistentDpolEvents.value;
+      } else if (filterValue === 'INT') {
+        return persistentIntEvents.value;
+      } else if (filterValue === 'INST') {
+        return persistentInstEvents.value;
+      }
+      
+      return [];
+    });
+
+    // Helper function to get event type name from event field
+    const getEventTypeName = (event: any) => {
+      const eventNum = Number(event);
+      const eventStr = String(event || '').toUpperCase();
+      
+      if (eventNum === 0 || event === 0 || event === '0' || eventStr === 'NORMAL') return 'NORMAL';
+      if (eventNum === 1 || event === 1 || event === '1' || eventStr === 'INT' || eventStr === 'INTERRUPT') return 'INT';
+      if (eventNum === 3 || event === 3 || event === '3' || eventStr === 'DPOL' || eventStr === 'DEPOL') return 'DPOL';
+      if (eventNum === 4 || event === 4 || event === '4' || eventStr === 'INST' || eventStr === 'INSTANT') return 'INST';
+      
+      return String(event || 'UNKNOWN');
+    };
+
+    // Helper function to get badge class for event type
+    const getEventBadgeClass = (event: any) => {
+      const eventType = getEventTypeName(event);
+      
+      switch (eventType) {
+        case 'NORMAL':
+          return 'badge badge-light-success text-nowrap';
+        case 'INT':
+          return 'badge badge-light-danger text-nowrap';
+        case 'DPOL':
+          return 'badge badge-light-warning text-nowrap';
+        case 'INST':
+          return 'badge badge-light-info text-nowrap';
+        default:
+          return 'badge badge-light-secondary text-nowrap';
+      }
+    };
+
+    // Helper function to get type class for event type column
+    const getEventTypeClass = (event: any) => {
+      const eventType = getEventTypeName(event);
+      
+      switch (eventType) {
+        case 'NORMAL':
+          return 'badge badge-success';
+        case 'INT':
+          return 'badge badge-danger';
+        case 'DPOL':
+          return 'badge badge-warning';
+        case 'INST':
+          return 'badge badge-info';
+        default:
+          return 'badge badge-secondary';
+      }
+    };
 
     // Load devices list
     const loadDevices = async () => {
@@ -318,10 +725,91 @@ export default defineComponent({
       }
     };
 
+    // Process locations in telemetry records - reverse geocode coordinates
+    const processRecordLocations = async () => {
+      console.log('🔍 Processing locations for', telemetryData.value.length, 'records');
+      
+      for (const record of telemetryData.value) {
+        if (!record.location) continue;
+        
+        // First, check if location is a JSON string (from database)
+        try {
+          const parsed = JSON.parse(record.location);
+          if (parsed && typeof parsed === 'object') {
+            // Extract city_name from JSON object
+            if (parsed.city_name) {
+              record.location = parsed.city_name;
+              console.log(`✅ Extracted city_name: ${record.location}`);
+              continue;
+            } else if (parsed.address) {
+              record.location = parsed.address;
+              continue;
+            }
+          }
+        } catch (e) {
+          // Not a JSON string, continue with coordinate check
+        }
+        
+        // Check if location is coordinates (latitude, longitude format)
+        const coordMatch = record.location?.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+        
+        if (coordMatch) {
+          const lat = parseFloat(coordMatch[1]);
+          const lon = parseFloat(coordMatch[2]);
+          const cacheKey = `${lat},${lon}`;
+          
+          console.log(`📍 Found coordinates: lat=${lat}, lon=${lon}`);
+          
+          // Check cache first
+          if (locationCache.value.has(cacheKey)) {
+            const cached = locationCache.value.get(cacheKey);
+            if (cached) {
+              record.location = cached;
+              console.log(`✅ Using cached location: ${cached}`);
+            }
+          } else {
+            try {
+              // Reverse geocode coordinates to get actual location
+              console.log(`🌐 Reverse geocoding (${lat}, ${lon})...`);
+              const geoData = await reverseGeocode(lat, lon);
+              if (geoData) {
+                let addressStr = '';
+                if (typeof geoData.address === 'string') {
+                  addressStr = geoData.address;
+                } else if (typeof geoData.city_name === 'string') {
+                  addressStr = geoData.city_name;
+                } else if (typeof geoData.address === 'object' && geoData.address !== null) {
+                  addressStr = geoData.address.display_name || JSON.stringify(geoData.address);
+                } else {
+                  addressStr = String(geoData.address || geoData);
+                }
+                
+                if (addressStr && addressStr !== '[object Object]') {
+                  record.location = addressStr;
+                  locationCache.value.set(cacheKey, addressStr);
+                  console.log(`📍 Geocoded to: ${addressStr}`);
+                }
+              }
+            } catch (err) {
+              console.warn(`⚠️ Could not geocode ${cacheKey}:`, err);
+            }
+          }
+        }
+      }
+      
+      console.log('✅ Location processing complete');
+    };
+
     // Load telemetry data from API
     const loadTelemetryData = async () => {
       try {
         loading.value = true;
+        
+        // Clear persistent event storage when loading new data (fresh filter)
+        persistentNormalEvents.value = [];
+        persistentDpolEvents.value = [];
+        persistentIntEvents.value = [];
+        persistentInstEvents.value = [];
         
         // Validate dates
         const start = new Date(startDate.value);
@@ -344,19 +832,48 @@ export default defineComponent({
           limit: dataLimit.value.toString(),
           sort: '-timestamp'
         });
-
-        if (selectedDevice.value && selectedDevice.value.trim() !== '') {
-          params.append('deviceId', selectedDevice.value);
+        
+        // Add mode filter to API request for server-side filtering (more efficient)
+        if (selectedMode.value && selectedMode.value.trim() !== '') {
+          params.append('mode', selectedMode.value);
+          console.log(`📤 Sending mode filter to API: "${selectedMode.value}"`);
         }
+
+        // Note: We load data and apply server-side mode filtering for efficiency
+        // Client-side filtering still applies for device ID matching
 
         console.log('📊 Loading telemetry data:', params.toString());
         
         ApiService.setHeader();
-        const response = await ApiService.get(`/api/telemetry?${params.toString()}`);
+        const response = await ApiService.listingget('/api/telemetry', params.toString());
         
         if (response.data?.success && Array.isArray(response.data.data)) {
-          telemetryData.value = response.data.data;
+          // Filter by device client-side if a device is selected
+          let filteredData = response.data.data;
+          if (selectedDevice.value && selectedDevice.value.trim() !== '') {
+            filteredData = filteredData.filter(record => {
+              // Handle both string and number device IDs
+              const recordDeviceId = String(record.deviceId);
+              const selectedDeviceId = String(selectedDevice.value);
+              return recordDeviceId === selectedDeviceId;
+            });
+            console.log(`🔍 Filtered by device ${selectedDevice.value}: ${filteredData.length} records`);
+          }
+          
+          telemetryData.value = filteredData;
           console.log('✅ Loaded', telemetryData.value.length, 'records');
+          
+          // Process locations for all records
+          await processRecordLocations();
+          
+          // Log first record structure for debugging
+          if (telemetryData.value.length > 0) {
+            const firstRecord = telemetryData.value[0];
+            console.log('📋 First record structure:', {
+              keys: Object.keys(firstRecord),
+              sample: JSON.stringify(firstRecord, null, 2)
+            });
+          }
           
           if (telemetryData.value.length === 0) {
             Swal.fire({
@@ -402,24 +919,84 @@ export default defineComponent({
     };
 
     const formatFieldName = (field: string) => {
+      const lowerField = field.toLowerCase();
+      
+      // Handle Digital Input columns (both short and long names)
+      if (lowerField === 'di1' || lowerField === 'digital input 1') return 'DI 1';
+      if (lowerField === 'di2' || lowerField === 'digital input 2') return 'DI 2';
+      if (lowerField === 'di3' || lowerField === 'digital input 3') return 'DI 3';
+      if (lowerField === 'di4' || lowerField === 'digital input 4') return 'DI 4';
+      
+      // Handle Digital Output column (both short and long names)
+      if (lowerField === 'do' || lowerField === 'digital output') return 'DO';
+      
+      // Default formatting
       return field.toUpperCase().replace(/_/g, ' ');
     };
 
-    const getDataField = (record: any, field: string) => {
-      if (!record.data) return null;
-      const dataObj = record.data instanceof Map ? Object.fromEntries(record.data) : record.data;
-      return dataObj[field];
+    const formatLocation = (loc: any): string => {
+      // Handle non-string values
+      if (!loc || loc === 'N/A') return 'N/A';
+      
+      // Convert to string if it's an object or not a string
+      let locStr = typeof loc === 'string' ? loc : String(loc);
+      
+      if (!locStr || locStr === 'N/A' || locStr === '[object Object]') return 'N/A';
+      
+      // Try to parse as JSON first (from database storage)
+      try {
+        const parsed = JSON.parse(locStr);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.city_name) return parsed.city_name;
+          if (parsed.address) return parsed.address;
+          if (parsed.display_name) return parsed.display_name;
+        }
+      } catch (e) {
+        // Not valid JSON, continue with coordinate check
+      }
+      
+      // Check if location looks like coordinates (latitude, longitude)
+      const coordMatch = locStr.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+      if (coordMatch) {
+        // Return shortened coordinate display
+        return `${coordMatch[1]}, ${coordMatch[2]}`;
+      }
+      
+      // Otherwise return the location as-is (assumed to be an address)
+      return locStr;
     };
 
-    const getEventBadgeClass = (event: string) => {
-      const eventMap: Record<string, string> = {
-        'NORMAL': 'badge badge-light-success',
-        'WARNING': 'badge badge-light-warning',
-        'ALERT': 'badge badge-light-danger',
-        'ERROR': 'badge badge-light-danger',
-        'INFO': 'badge badge-light-info'
-      };
-      return eventMap[event] || 'badge badge-light-secondary';
+    const getDataField = (record: any, field: string) => {
+      // Skip if field is the data field itself
+      if (field === 'data') return null;
+      
+      // Check if field exists directly in record (flattened structure)
+      if (record.hasOwnProperty(field)) {
+        return record[field];
+      }
+      
+      // Fall back to legacy data object structure for backward compatibility
+      if (record.data && typeof record.data === 'object') {
+        const dataObj = record.data instanceof Map ? Object.fromEntries(record.data) : record.data;
+        return dataObj[field] || null;
+      }
+      
+      return null;
+    };
+
+    // Get event value (state) from event string
+    // Examples: "event:normal/int on" -> "int on", "INT OFF" -> "INT OFF"
+    const getEventValue = (record: any) => {
+      const event = String(record.event || '');
+      
+      // Handle format like "event:normal/int on" 
+      if (event.includes('/')) {
+        const parts = event.split('/');
+        return parts[parts.length - 1].trim();
+      }
+      
+      // Handle format like "INT OFF", "INST ON", etc.
+      return event;
     };
 
     // Export to PDF
@@ -679,6 +1256,144 @@ export default defineComponent({
       }
     };
 
+    // Export event reports to Excel
+    const exportEventReport = async (eventType: 'normal' | 'dpol' | 'int' | 'inst') => {
+      try {
+        const eventMap: Record<string, any[]> = {
+          'normal': normalEvents.value,
+          'dpol': dpolEvents.value,
+          'int': intEvents.value,
+          'inst': instEvents.value
+        };
+
+        const events = eventMap[eventType];
+        if (!events || events.length === 0) {
+          Swal.fire({
+            title: 'No Data',
+            text: `No ${eventType.toUpperCase()} events to export.`,
+            icon: 'warning',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        // Create headers in the same order as the report table
+        const headers = [
+          'Device ID', 'Location', 'Status', 'Log No', 'Timestamp', 'Mode',
+          'ACV', 'ACI', 'DCV', 'DCI',
+          'Ref 1', 'Ref 2', 'Ref 3',
+          'DI 1', 'DI 2', 'DI 3', 'DI 4', 'DO',
+          'Latitude', 'Longitude',
+          'Ref Status 1', 'Ref Status 2', 'Ref Status 3'
+        ];
+
+        const rows = events.map(record => [
+          record.deviceId,
+          formatLocation(record.location) || '-',
+          formatDataValue(getDataField(record, 'status')) || '-',
+          formatDataValue(getDataField(record, 'logNo') || getDataField(record, 'log') || getDataField(record, 'LOG')) || '-',
+          new Date(record.timestamp).toLocaleString(),
+          formatDataValue(record.event) || '-',
+          formatDataValue(getDataField(record, 'acv') || getDataField(record, 'ACV')) || '-',
+          formatDataValue(getDataField(record, 'aci') || getDataField(record, 'ACI')) || '-',
+          formatDataValue(getDataField(record, 'dcv') || getDataField(record, 'DCV')) || '-',
+          formatDataValue(getDataField(record, 'dci') || getDataField(record, 'DCI')) || '-',
+          formatDataValue(getDataField(record, 'ref1') || getDataField(record, 'REF1')) || '-',
+          formatDataValue(getDataField(record, 'ref2') || getDataField(record, 'REF2')) || '-',
+          formatDataValue(getDataField(record, 'ref3') || getDataField(record, 'REF3')) || '-',
+          formatDataValue(getDataField(record, 'di1') || getDataField(record, 'Digital Input 1')) || '-',
+          formatDataValue(getDataField(record, 'di2') || getDataField(record, 'Digital Input 2')) || '-',
+          formatDataValue(getDataField(record, 'di3') || getDataField(record, 'Digital Input 3')) || '-',
+          formatDataValue(getDataField(record, 'di4') || getDataField(record, 'Digital Input 4')) || '-',
+          formatDataValue(getDataField(record, 'do') || getDataField(record, 'Digital Output')) || '-',
+          formatDataValue(getDataField(record, 'latitude') || getDataField(record, 'lat') || getDataField(record, 'LATITUDE')) || '-',
+          formatDataValue(getDataField(record, 'longitude') || getDataField(record, 'long') || getDataField(record, 'LONGITUDE')) || '-',
+          formatDataValue(getDataField(record, 'ref1Status') || getDataField(record, 'REF1Status') || getDataField(record, 'REF1 STS')) || '-',
+          formatDataValue(getDataField(record, 'ref2Status') || getDataField(record, 'REF2Status') || getDataField(record, 'REF2 STS')) || '-',
+          formatDataValue(getDataField(record, 'ref3Status') || getDataField(record, 'REF3Status') || getDataField(record, 'REF3 STS')) || '-'
+        ]);
+
+        // Convert to CSV
+        const csvContent = [
+          headers.map(h => `"${h}"`).join(','),
+          ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        // Create blob and download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${eventType.toUpperCase()}_events_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        Swal.fire({
+          title: 'Export Successful!',
+          html: `
+            <div class="text-center">
+              <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+              <p class="mt-3">Exported ${events.length} ${eventType.toUpperCase()} events</p>
+              <p class="text-muted small">Total accumulated data for this session</p>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonText: 'OK',
+          customClass: {
+            confirmButton: "btn btn-success"
+          },
+          timer: 3000
+        });
+      } catch (error: any) {
+        console.error('❌ Event export error:', error);
+        Swal.fire({
+          title: 'Export Failed',
+          text: error.message || 'Failed to export event data.',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          customClass: {
+            confirmButton: "btn btn-danger"
+          }
+        });
+      }
+    };
+
+    // Clear accumulated event data (manual reset)
+    const clearAccumulatedEvents = () => {
+      Swal.fire({
+        title: 'Clear Accumulated Data?',
+        text: 'This will clear all accumulated NORMAL, DPOL, INT, and INST events. This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Clear',
+        cancelButtonText: 'Cancel',
+        customClass: {
+          confirmButton: "btn btn-danger",
+          cancelButton: "btn btn-secondary"
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          persistentNormalEvents.value = [];
+          persistentDpolEvents.value = [];
+          persistentIntEvents.value = [];
+          persistentInstEvents.value = [];
+          
+          Swal.fire({
+            title: 'Cleared!',
+            text: 'All accumulated event data has been cleared.',
+            icon: 'success',
+            confirmButtonText: 'OK',
+            timer: 2000
+          });
+        }
+      });
+    };
+
     // Initialize
     onMounted(async () => {
       console.log('📊 Reports module initialized');
@@ -686,16 +1401,26 @@ export default defineComponent({
       await loadTelemetryData();
     });
 
+    // Event handler for chart device filter change
+    const onChartDeviceFilterChange = (deviceId: string) => {
+      selectedDevice.value = deviceId;
+      loadTelemetryData();
+    };
+
     return {
       // Export functions
       exportPDF,
       exportToExcel,
+      exportEventReport,
+      clearAccumulatedEvents,
       exportLoading,
       
       // Data and state
       telemetryData,
       devices,
       selectedDevice,
+      selectedMode,
+      selectedEventFilter,
       startDate,
       endDate,
       dataLimit,
@@ -708,6 +1433,11 @@ export default defineComponent({
       lastUpdated,
       dataFields,
       displayedData,
+      normalEvents,
+      dpolEvents,
+      intEvents,
+      instEvents,
+      filteredEvents,
       
       // Functions
       loadTelemetryData,
@@ -715,8 +1445,13 @@ export default defineComponent({
       formatTime,
       formatDataValue,
       formatFieldName,
+      formatLocation,
       getDataField,
-      getEventBadgeClass
+      getEventBadgeClass,
+      getEventValue,
+      getEventTypeName,
+      getEventTypeClass,
+      onChartDeviceFilterChange
     };
   },
 });

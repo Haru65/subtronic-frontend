@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import ApiService from './api.service';
+import ApiService from '@/core/services/ApiService';
 
 export interface IAlarm {
   id: number;
@@ -282,6 +282,35 @@ class AlarmService {
   // Clear error
   clearError() {
     this.error.value = null;
+  }
+
+  /**
+   * Get alarm history/log (triggered alarms from past)
+   */
+  async getAlarmHistory(options?: { device_name?: string; limit?: number; page?: number; days?: number }): Promise<any[]> {
+    this.loading.value = true;
+    this.error.value = null;
+
+    try {
+      const params = new URLSearchParams();
+      if (options?.device_name) params.append('device_name', options.device_name);
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.page) params.append('page', options.page.toString());
+      if (options?.days) params.append('days', options.days.toString());
+
+      const response = await ApiService.get(`/api/alarms/history/log${params.toString() ? '?' + params.toString() : ''}`);
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch alarm history');
+      }
+    } catch (error) {
+      this.error.value = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error fetching alarm history:', error);
+      throw error;
+    } finally {
+      this.loading.value = false;
+    }
   }
 }
 

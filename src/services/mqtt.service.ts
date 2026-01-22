@@ -53,19 +53,19 @@ export interface TimerConfig {
 
 export interface AlarmConfig {
   setup?: {
-    value: string;
-    threshold: string;
-    enabled: boolean;
+    value?: string | number;
+    threshold?: string | number;
+    enabled?: boolean;
   };
   setop?: {
-    value: string;
-    threshold: string;
-    enabled: boolean;
+    value?: string | number;
+    threshold?: string | number;
+    enabled?: boolean;
   };
   reffcal?: {
-    value: string;
-    calibration: string;
-    enabled: boolean;
+    value?: string | number;
+    calibration?: string | number;
+    enabled?: boolean;
   };
 }
 
@@ -394,6 +394,71 @@ class MqttService {
       console.error('❌ Failed to get settings from database:', error);
       throw new Error(error?.response?.data?.message || 'Failed to get settings');
     }
+  }
+
+  /**
+   * Send complete settings payload (used after staging updates in cache)
+   * This method accepts a complete payload with all fields, including non-updated ones
+   */
+  async sendCompleteSettingsPayload(deviceId: string, completePayload: any) {
+    try {
+      ApiService.setHeader();
+      const response = await ApiService.post(
+        `/api/devices/${deviceId}/settings/complete`,
+        completePayload
+      );
+      console.log('✅ Complete settings payload sent successfully:', response.data);
+      
+      // Ensure response has success flag for frontend to detect
+      const result = response.data || {};
+      if (result.success !== false) {
+        result.success = true;
+      }
+      return result;
+    } catch (error: any) {
+      console.error('❌ Failed to send complete settings payload:', error);
+      return {
+        success: false,
+        error: error?.response?.data?.message || 'Failed to send settings'
+      };
+    }
+  }
+
+  /**
+   * Batch multiple setting updates and send as complete payload
+   * Useful for applying multiple changes at once
+   */
+  async batchUpdateSettings(deviceId: string, updates: Record<string, any>) {
+    try {
+      ApiService.setHeader();
+      const response = await ApiService.post(
+        `/api/devices/${deviceId}/settings/batch`,
+        { updates }
+      );
+      console.log('✅ Batch settings updates sent successfully');
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Failed to batch update settings:', error);
+      throw new Error(error?.response?.data?.message || 'Failed to batch update settings');
+    }
+  }
+
+  /**
+   * Get only the staging methods from cache
+   * Import the cache store and call these methods before sending
+   */
+  getStagingHint() {
+    return {
+      hint: 'Use the deviceSettingsCache store methods to stage updates before sending',
+      methods: [
+        'stageSettingUpdate(deviceId, key, value)',
+        'stageMultipleUpdates(deviceId, updates)',
+        'getCompleteSettingsPayload(deviceId)',
+        'getStagedChanges(deviceId)',
+        'hasStagedChanges(deviceId)',
+        'clearStagedChanges(deviceId)'
+      ]
+    };
   }
 
   disconnect(): void {

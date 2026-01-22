@@ -35,7 +35,7 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: "/devices",
         name: "devices",
-        component: () => import("@/views/apps/iot/devices/Devices.vue"),
+        component: () => import("@/views/apps/iot/devices/DevicesWithZones.vue"),
         meta: {
           pageTitle: "Devices",
           breadcrumbs: ["Devices"],

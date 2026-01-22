@@ -1,4 +1,4 @@
-import ApiService from './api.service';
+import ApiService from '@/core/services/ApiService';
 
 class DeviceAcknowledgmentService {
   /**

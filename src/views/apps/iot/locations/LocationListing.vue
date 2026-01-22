@@ -50,11 +50,11 @@
         <template v-slot:device_name="{ row: location }">
           {{ location.device_name }}
         </template>
-        <template v-slot:location_name="{ row: location }">
-          {{ location.location_name }}
+        <template v-slot:device_location="{ row: location }">
+          {{ location.device_location || 'Not Set' }}
         </template>
-        <template v-slot:parent_location_name="{ row: location }">
-          {{ location.parent_location_name || 'None' }}
+        <template v-slot:last_online="{ row: location }">
+          {{ location.last_online || 'Never' }}
         </template>
         <template v-slot:actions="{ row: location }">
           <div class="dropdown">
@@ -118,17 +118,20 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from "vue";
+import { defineComponent, ref, onMounted } from "vue";
 import Datatable from "@/components/kt-datatable/KTDataTable.vue";
 import LocationAddModal from "./LocationAddModal.vue";
 import Swal from "sweetalert2";
 import arraySort from "array-sort";
+import ApiService from "@/core/services/ApiService";
+import { reverseGeocode } from "@/utils/reverseGeocode";
+import { formatLastSeen } from "@/utils/dateFormatter";
 
 interface ILocation {
   id: number;
   device_name: string;
-  location_name: string;
-  parent_location_name: string | null;
+  device_location?: string;
+  last_online?: string;
 }
 
 export default defineComponent({
@@ -141,20 +144,12 @@ export default defineComponent({
     const tableHeader = ref([
       { columnName: "ID", columnLabel: "id", sortEnabled: true, columnWidth: 50 },
       { columnName: "Device Name", columnLabel: "device_name", sortEnabled: true, columnWidth: 150 },
-      { columnName: "Location Name", columnLabel: "location_name", sortEnabled: true, columnWidth: 150 },
-      { columnName: "Parent Location Name", columnLabel: "parent_location_name", sortEnabled: true, columnWidth: 150 },
+      { columnName: "Device Location", columnLabel: "device_location", sortEnabled: true, columnWidth: 150 },
+      { columnName: "Last Online", columnLabel: "last_online", sortEnabled: true, columnWidth: 150 },
       { columnName: "Actions", columnLabel: "actions", sortEnabled: false, columnWidth: 75 },
     ]);
 
-    const dummyData: ILocation[] = [
-      { id: 1, device_name: "Sensor A", location_name: "Room 101", parent_location_name: null },
-      { id: 2, device_name: "Sensor B", location_name: "Room 102", parent_location_name: "Building A" },
-      { id: 3, device_name: "Motor X", location_name: "Factory Floor", parent_location_name: null },
-      { id: 4, device_name: "Sensor C", location_name: "Storage Unit", parent_location_name: "Warehouse" },
-      { id: 5, device_name: "UPS 1", location_name: "Server Room", parent_location_name: "Data Center" },
-      { id: 6, device_name: "Pump Y", location_name: "Pipeline 1", parent_location_name: null },
-      { id: 7, device_name: "Sensor D", location_name: "Room 103", parent_location_name: "Building B" },
-    ];
+    const dummyData: ILocation[] = [];
 
     const tableData = ref<ILocation[]>([...dummyData]);
     const initValues = ref<ILocation[]>([...dummyData]);
@@ -165,6 +160,84 @@ export default defineComponent({
     const limits = ref([10, 25, 50]);
     const selectedIds = ref<number[]>([]);
     const more = ref(true);
+
+    // Process location field - reverse geocode if needed
+    const processLocationField = async (location: string | undefined): Promise<string> => {
+      if (!location) return "Not Set";
+      
+      // Check if location is coordinates (format: "lat, lon")
+      const coordMatch = location.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+      if (coordMatch) {
+        try {
+          const lat = parseFloat(coordMatch[1]);
+          const lon = parseFloat(coordMatch[2]);
+          console.log(`🌐 Reverse geocoding location (${lat}, ${lon})...`);
+          const geoData = await reverseGeocode(lat, lon);
+          if (geoData && geoData.address) {
+            console.log(`📍 Geocoded to: ${geoData.address}`);
+            return geoData.address;
+          }
+        } catch (error) {
+          console.warn(`⚠️ Geocoding failed for ${location}:`, error);
+        }
+      }
+      
+      return location;
+    };
+
+    // Fetch device locations with dynamic data
+    const fetchDeviceLocations = async () => {
+      loading.value = true;
+      try {
+        ApiService.setHeader();
+        const response = await ApiService.query("/api/devices", {});
+        
+        if (response?.data?.success && response?.data?.devices) {
+          const devices = response.data.devices;
+          const locationsData: ILocation[] = await Promise.all(
+            devices.map(async (device: any, index: number) => {
+              // Format last online time - use HH:MM:SS format for recent times
+              let lastOnlineStr = "Never";
+              if (device.lastSeen) {
+                lastOnlineStr = formatLastSeen(device.lastSeen);
+              }
+
+              // Process location field to geocode if needed
+              const processedLocation = await processLocationField(device.location);
+
+              return {
+                id: index + 1,
+                device_name: device.deviceName || device.name || "N/A",
+                device_location: processedLocation,
+                last_online: lastOnlineStr,
+              };
+            })
+          );
+          
+          tableData.value = locationsData;
+          initValues.value = locationsData;
+          console.log('✅ Locations loaded:', locationsData.length);
+        } else {
+          console.warn('⚠️ No devices found in response');
+        }
+      } catch (error) {
+        console.error("Error fetching device locations:", error);
+        Swal.fire({
+          title: "Error",
+          text: "Failed to load device locations",
+          icon: "error",
+          buttonsStyling: false,
+          confirmButtonText: "Ok, got it!",
+          customClass: { confirmButton: "btn btn-primary" },
+        });
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    onMounted(() => {
+      fetchDeviceLocations();
+    });
 
     const addLocation = (newLocation: ILocation) => {
       tableData.value.push(newLocation);

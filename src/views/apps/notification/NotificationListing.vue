@@ -1,6 +1,35 @@
 <template>
   <div class="card">
-    <div class="card-header border-0 pt-6">
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs nav-line-tabs mb-5 ms-0 border-0" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button
+          :class="['nav-link', { active: activeTab === 'notifications' }]"
+          @click="activeTab = 'notifications'"
+          role="tab"
+        >
+          <span class="d-flex align-items-center">
+            <KTIcon icon-name="notification" icon-class="me-3" />
+            Notifications
+          </span>
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button
+          :class="['nav-link', { active: activeTab === 'alarms' }]"
+          @click="activeTab = 'alarms'"
+          role="tab"
+        >
+          <span class="d-flex align-items-center">
+            <KTIcon icon-name="alarm-bell" icon-class="me-3" />
+            Recent Alarms ({{ alarmTriggersCount }})
+          </span>
+        </button>
+      </li>
+    </ul>
+
+    <!-- Notifications Tab -->
+    <div v-if="activeTab === 'notifications'" class="card-header border-0 pt-6">
       <!--begin::Card title-->
       <div class="card-title">
         <!--begin::Search-->
@@ -42,27 +71,6 @@
             >Selected
           </div>
           <button type="button" class="btn btn-danger" @click="deleteFewItem()">
-            Delete Selected
-          </button>
-        </div>
-        <!--end::Group actions-->
-        <!--begin::Group actions-->
-        <div
-          class="d-flex justify-content-end align-items-center d-none"
-          data-kt-customer-table-toolbar="selected"
-        >
-          <div class="fw-bold me-5">
-            <span
-              class="me-2"
-              data-kt-customer-table-select="selected_count"
-            ></span
-            >Selected
-          </div>
-          <button
-            type="button"
-            class="btn btn-danger"
-            data-kt-customer-table-select="delete_selected"
-          >
             Delete Selected
           </button>
         </div>
@@ -153,7 +161,8 @@
       </div>
       <!--end::Card toolbar-->
     </div>
-    <div class="card-body pt-0">
+
+    <div v-if="activeTab === 'notifications'" class="card-body pt-0">
       <Datatable
         checkbox-label="id"
         @on-sort="sort"
@@ -193,7 +202,6 @@
         <template v-slot:actions="{ row: notifications }">
           <!--begin::Menu Flex-->
           <div class="d-flex flex-lg-row my-3">
-
             <!--begin::Delete-->
             <span
               @click="deleteItem(notifications.id, false)"
@@ -241,6 +249,229 @@
         </ul>
       </div>
     </div>
+
+    <!-- Alarms Tab -->
+    <div v-if="activeTab === 'alarms'" class="card-body pt-6">
+      <div class="mb-4">
+        <button @click="loadRecentAlarms" class="btn btn-primary btn-sm">
+          <KTIcon icon-name="reload" icon-class="me-2" />
+          Refresh
+        </button>
+      </div>
+
+      <div v-if="loadingAlarms" class="d-flex justify-content-center p-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+
+      <div v-else-if="alarmTriggers.length === 0" class="alert alert-info">
+        <KTIcon icon-name="check-circle" icon-class="me-2" />
+        No recent alarms found
+      </div>
+
+      <div v-else class="table-responsive">
+        <table class="table table-hover table-striped">
+          <thead class="table-light">
+            <tr>
+              <th>Time</th>
+              <th>Alarm Name</th>
+              <th>Device</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="trigger in alarmTriggers" :key="trigger._id">
+              <td>
+                <small class="text-muted">
+                  {{ formatDate(trigger.triggered_at) }}
+                </small>
+              </td>
+              <td>
+                <strong>{{ trigger.alarm_name }}</strong>
+              </td>
+              <td>
+                <span class="badge badge-light-info">{{
+                  trigger.device_name
+                }}</span>
+              </td>
+              <td>
+                <small>{{ trigger.trigger_reason }}</small>
+              </td>
+              <td>
+                <span
+                  :class="[
+                    'badge',
+                    trigger.notification_status === 'SENT'
+                      ? 'badge-light-success'
+                      : 'badge-light-warning',
+                  ]"
+                >
+                  {{ trigger.notification_status }}
+                </span>
+              </td>
+              <td>
+                <button
+                  @click="openAlarmDetail(trigger)"
+                  class="btn btn-icon btn-active-light-primary w-30px h-30px"
+                  data-bs-toggle="tooltip"
+                  title="View Details"
+                >
+                  <KTIcon icon-name="eye" icon-class="fs-2" />
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alarm Detail Modal -->
+  <div
+    v-if="selectedAlarm"
+    class="modal fade show d-block"
+    style="background-color: rgba(0, 0, 0, 0.5)"
+    tabindex="-1"
+  >
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Alarm Trigger Details</h5>
+          <button
+            type="button"
+            class="btn-close"
+            @click="selectedAlarm = null"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <!-- Alarm Information -->
+          <div class="mb-4">
+            <h6 class="fw-bold">Alarm Information</h6>
+            <div class="row g-4">
+              <div class="col-6">
+                <p class="text-muted mb-1">Alarm Name</p>
+                <p class="fw-bold">{{ selectedAlarm.alarm_name }}</p>
+              </div>
+              <div class="col-6">
+                <p class="text-muted mb-1">Severity</p>
+                <span
+                  :class="[
+                    'badge',
+                    selectedAlarm.alarm_config?.severity === 'critical'
+                      ? 'badge-light-danger'
+                      : selectedAlarm.alarm_config?.severity === 'warning'
+                      ? 'badge-light-warning'
+                      : 'badge-light-info',
+                  ]"
+                >
+                  {{ selectedAlarm.alarm_config?.severity || 'N/A' }}
+                </span>
+              </div>
+              <div class="col-6">
+                <p class="text-muted mb-1">Device</p>
+                <p class="fw-bold">{{ selectedAlarm.device_name }}</p>
+              </div>
+              <div class="col-6">
+                <p class="text-muted mb-1">Triggered At</p>
+                <p class="fw-bold">{{ formatDate(selectedAlarm.triggered_at) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <hr />
+
+          <!-- Trigger Reason -->
+          <div class="mb-4">
+            <h6 class="fw-bold">Trigger Reason</h6>
+            <p class="bg-light p-3 rounded">{{ selectedAlarm.trigger_reason }}</p>
+          </div>
+
+          <!-- Sensor Values at Trigger -->
+          <div class="mb-4">
+            <h6 class="fw-bold">Sensor Values at Trigger</h6>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">REF1 Status</small>
+                  <strong>{{
+                    selectedAlarm.triggered_values?.['REF1 STS'] || '-'
+                  }}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">REF2 Status</small>
+                  <strong>{{
+                    selectedAlarm.triggered_values?.['REF2 STS'] || '-'
+                  }}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">REF3 Status</small>
+                  <strong>{{
+                    selectedAlarm.triggered_values?.['REF3 STS'] || '-'
+                  }}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">DCV</small>
+                  <strong>{{ selectedAlarm.triggered_values?.DCV || '-' }}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">DCI</small>
+                  <strong>{{ selectedAlarm.triggered_values?.DCI || '-' }}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">ACV</small>
+                  <strong>{{ selectedAlarm.triggered_values?.ACV || '-' }}</strong>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="bg-light p-3 rounded">
+                  <small class="text-muted d-block">EVENT Status</small>
+                  <strong>{{
+                    selectedAlarm.triggered_values?.EVENT || '-'
+                  }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alarm Thresholds -->
+          <div class="mb-4">
+            <h6 class="fw-bold">Alarm Thresholds</h6>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <tbody>
+                  <tr v-for="(value, key) in selectedAlarm.alarm_config?.device_params" :key="key">
+                    <td class="text-muted">{{ formatThresholdName(key) }}</td>
+                    <td class="fw-bold">{{ value }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="selectedAlarm = null"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
   
@@ -268,6 +499,15 @@ export default defineComponent({
     Datatable,
   },
   setup() {
+    // Tab management
+    const activeTab = ref<'notifications' | 'alarms'>('notifications');
+
+    // Alarm data
+    const alarmTriggers = ref<any[]>([]);
+    const loadingAlarms = ref(false);
+    const selectedAlarm = ref<any>(null);
+    const alarmTriggersCount = ref(0);
+
     const tableHeader = ref([
       {
         columnName: "Type",
@@ -466,8 +706,61 @@ export default defineComponent({
       }
     }
 
+    // Load recent alarms
+    const loadRecentAlarms = async () => {
+      loadingAlarms.value = true;
+      try {
+        const response = await fetch(
+          '/api/alarms/triggers/recent?hours=24&limit=50'
+        );
+        const result = await response.json();
+        
+        if (result.success) {
+          alarmTriggers.value = result.data || [];
+          alarmTriggersCount.value = result.total || 0;
+        } else {
+          console.error('Failed to load alarms:', result.message);
+          alarmTriggers.value = [];
+          alarmTriggersCount.value = 0;
+        }
+      } catch (error) {
+        console.error('Error loading alarm triggers:', error);
+        alarmTriggers.value = [];
+        alarmTriggersCount.value = 0;
+      } finally {
+        loadingAlarms.value = false;
+      }
+    };
+
+    const openAlarmDetail = (trigger: any) => {
+      selectedAlarm.value = trigger;
+    };
+
+    const formatDate = (date: string | Date) => {
+      return moment(date).format("DD-MM-YYYY HH:mm:ss");
+    };
+
+    const formatThresholdName = (key: string) => {
+      const names: { [key: string]: string } = {
+        'ref_1_upper': 'REF1 Upper',
+        'ref_1_lower': 'REF1 Lower',
+        'ref_2_upper': 'REF2 Upper',
+        'ref_2_lower': 'REF2 Lower',
+        'ref_3_upper': 'REF3 Upper',
+        'ref_3_lower': 'REF3 Lower',
+        'dcv_upper': 'DCV Upper',
+        'dcv_lower': 'DCV Lower',
+        'dci_upper': 'DCI Upper',
+        'dci_lower': 'DCI Lower',
+        'acv_upper': 'ACV Upper',
+        'acv_lower': 'ACV Lower',
+      };
+      return names[key] || key;
+    };
+
     onMounted(async () => {
       await notification_listing();
+      await loadRecentAlarms();
     });
 
     const deleteFewItem = async () => {
@@ -676,6 +969,15 @@ export default defineComponent({
     };
 
     return {
+      activeTab,
+      alarmTriggers,
+      loadingAlarms,
+      selectedAlarm,
+      alarmTriggersCount,
+      loadRecentAlarms,
+      openAlarmDetail,
+      formatDate,
+      formatThresholdName,
       tableData,
       tableHeader,
       deleteItem,

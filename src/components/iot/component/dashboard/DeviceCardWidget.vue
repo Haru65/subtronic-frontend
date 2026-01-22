@@ -8,7 +8,15 @@
         </div>
         <div>
           <h3 class="h5 mb-0 text-gray-800">{{ name }}</h3>
-          <p class="text-gray-800 small mb-0">{{ location }}</p>
+          <!-- Sensor ID -->
+          <p class="text-gray-800 small mb-1">
+            <span class="fw-semibold">ID: {{ sensorId }}</span>
+          </p>
+          <!-- Location - Format coordinates if needed -->
+          <p class="text-gray-800 small mb-0">
+            <i class="bi bi-geo-alt"></i> 
+            <span :title="location">{{ formatLocation(location) }}</span>
+          </p>
         </div>
       </div>
 
@@ -30,12 +38,6 @@
 
     <div class="row mt-3 g-2">
       <div class="col text-center" v-for="metric in metrics" :key="metric.type">
-        <div class="d-flex justify-content-center mb-1">
-          <i
-            :class="[metric.icon, metricClass(metric)]"
-            style="font-size: 1.25rem"
-          ></i>
-        </div>
         <p class="small fw-medium text-gray-800 mb-0">
           {{ metric.value }}{{ metric.type === "temperature" ? "°C" : "%" }}
         </p>
@@ -54,11 +56,15 @@
       </button>
       
       <router-link 
-        :to="{ name: 'device-details', params: { id: id }}" 
+        v-if="id"
+        :to="{ name: 'device-details', params: { id: String(id) }}" 
         class="btn btn-link btn-sm text-primary p-0"
       >
         View Details
       </router-link>
+      <span v-else class="btn btn-link btn-sm text-muted p-0 disabled">
+        View Details
+      </span>
     </div>
   </div>
 </template>
@@ -79,6 +85,7 @@ export default defineComponent({
   emits: ['deviceRemoved'],
   props: {
     id: { type: String, required: true },
+    sensorId: { type: String, required: false, default: '' },
     name: { type: String, required: true },
     type: { type: String, required: true },
     icon: { type: String, required: true },
@@ -169,11 +176,45 @@ export default defineComponent({
       return "text-primary";
     };
 
+    // Format location - check if it's coordinates or an address
+    const formatLocation = (loc: any): string => {
+      // Handle non-string values
+      if (!loc || loc === 'N/A') return 'N/A';
+      
+      // Convert to string if it's an object or not a string
+      let locStr = typeof loc === 'string' ? loc : String(loc);
+      
+      if (!locStr || locStr === 'N/A' || locStr === '[object Object]') return 'N/A';
+      
+      // Try to parse as JSON first (from database storage)
+      try {
+        const parsed = JSON.parse(locStr);
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.city_name) return parsed.city_name;
+          if (parsed.address) return parsed.address;
+          if (parsed.display_name) return parsed.display_name;
+        }
+      } catch (e) {
+        // Not valid JSON, continue with coordinate check
+      }
+      
+      // Check if location looks like coordinates (latitude, longitude)
+      const coordMatch = locStr.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+      if (coordMatch) {
+        // Return shortened coordinate display
+        return `${coordMatch[1]}, ${coordMatch[2]}`;
+      }
+      
+      // Otherwise return the location as-is (assumed to be an address)
+      return locStr;
+    };
+
     return {
       statusLabel,
       statusClass,
       statusDotClass,
       metricClass,
+      formatLocation,
       isRemoving,
       handleRemoveDevice,
     };

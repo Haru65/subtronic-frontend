@@ -67,21 +67,6 @@
       </li>
     </ul>
 
-    <!-- Broadcast Message Button -->
-    <button 
-      type="button" 
-      class="btn btn-info mb-5"
-      @click="showBroadcast = !showBroadcast"
-    >
-      <i class="bi bi-broadcast me-2"></i>
-      {{ showBroadcast ? 'Hide Broadcast' : 'Broadcast Message' }}
-    </button>
-
-    <!-- Broadcast Message Component -->
-    <div v-if="showBroadcast" class="mb-6">
-      <BroadcastMessage />
-    </div>
-
     <!-- Devices Grid -->
     <div v-if="filteredDevices.length > 0" class="row g-4">
       <div
@@ -108,9 +93,9 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from "vue";
 import DeviceCardWidget from "@/components/iot/component/dashboard/DeviceCardWidget.vue";
-import BroadcastMessage from "@/components/iot/BroadcastMessage.vue";
 import AddDeviceModal from "@/components/iot/AddDeviceModal.vue";
 import KTIcon from "@/core/helpers/kt-icon/KTIcon.vue";
+import { reverseGeocode } from "@/utils/reverseGeocode";
 
 // Define the possible status values
 type DeviceStatus = "online" | "offline" | "warning" | "critical";
@@ -138,7 +123,6 @@ export default defineComponent({
   name: "Devices",
   components: {
     DeviceCardWidget,
-    BroadcastMessage,
     AddDeviceModal,
     KTIcon,
   },
@@ -146,12 +130,12 @@ export default defineComponent({
     // Search and filter state
     const searchQuery = ref("");
     const currentFilter = ref("all");
-    const showBroadcast = ref(false);
     const loading = ref(true);
     const error = ref<string | null>(null);
 
     // Device data - now loaded dynamically from backend
     const devices = ref<Device[]>([]);
+    const locationCache = ref<Map<string, string>>(new Map());
     
     // Fetch devices from backend
     const fetchDevices = async () => {
@@ -171,24 +155,30 @@ export default defineComponent({
         const result = await response.json();
         console.log('📦 Received from API:', result);
         
-        // API returns { success, count, devices: [...] }
-        // Transform to match frontend format
-        const transformedDevices = result.devices?.map((device: any) => ({
-          id: device.deviceId,
-          name: device.name,
+        // API returns an array directly
+        let deviceList = Array.isArray(result) ? result : (result.devices || []);
+        console.log('📦 Device list:', deviceList);
+        
+        // Transform to match frontend format - ensure all fields are properly mapped
+        const transformedDevices = deviceList.map((device: any) => ({
+          id: device.id || device.deviceId,
+          sensorId: device.sensorId || device.id || device.deviceId,
+          name: device.name || `Device ${device.id || device.deviceId}`,
           icon: device.icon || 'bi-device',
-          type: 'IoT Sensor',
-          location: device.location,
-          status: device.status,
-          lastSeen: device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never',
-          metrics: [
-            { type: 'battery', value: device.currentData?.battery || 0, icon: 'bi-battery-full' },
-            { type: 'signal', value: device.currentData?.signal || 0, icon: 'bi-wifi' },
-            { type: 'temperature', value: device.currentData?.temperature || 0, icon: 'bi-thermometer' },
-          ]
-        })) || [];
+          type: device.type || 'IoT Sensor',
+          location: device.location || 'N/A',
+          status: device.status || 'offline',  // Real status from telemetry
+          lastSeen: device.lastSeen || 'Never', // Latest timestamp
+          metrics: device.metrics || []
+        }));
+        
+        console.log('🔄 Transformed devices:', transformedDevices);
         
         devices.value = transformedDevices;
+        
+        // Process location data for all devices
+        await processDeviceLocations();
+        
         console.log('✅ Updated devices.value:', devices.value.length, 'devices');
       } catch (err: any) {
         console.error('❌ Error fetching devices:', err);
@@ -228,6 +218,93 @@ export default defineComponent({
       } finally {
         loading.value = false;
       }
+    };
+    
+    // Reverse geocode coordinates to location names
+    const processDeviceLocations = async () => {
+      console.log('🔍 Processing locations for', devices.value.length, 'devices');
+      
+      for (const device of devices.value) {
+        console.log(`🔍 Checking device location: "${device.location}"`);
+        
+        // First, check if location is a JSON string (from database)
+        try {
+          const parsed = JSON.parse(device.location);
+          if (parsed && typeof parsed === 'object') {
+            // Extract city_name from JSON object
+            if (parsed.city_name) {
+              device.location = parsed.city_name;
+              console.log(`✅ Extracted city_name from JSON: ${device.location}`);
+              continue;
+            } else if (parsed.address) {
+              device.location = parsed.address;
+              console.log(`✅ Extracted address from JSON: ${device.location}`);
+              continue;
+            }
+          }
+        } catch (e) {
+          // Not a JSON string, continue with normal processing
+        }
+        
+        // Check if location is coordinates (latitude, longitude format)
+        // Pattern matches: "19.076, 72.8777" or "19.076,72.8777"
+        const coordMatch = device.location?.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+        
+        if (coordMatch) {
+          const lat = parseFloat(coordMatch[1]);
+          const lon = parseFloat(coordMatch[2]);
+          const cacheKey = `${lat},${lon}`;
+          
+          console.log(`📍 Found coordinates for ${device.name}: lat=${lat}, lon=${lon}`);
+          
+          // Check cache first
+          if (locationCache.value.has(cacheKey)) {
+            const cached = locationCache.value.get(cacheKey);
+            if (cached) {
+              device.location = String(cached);
+              console.log(`✅ Using cached location for ${device.name}: ${device.location}`);
+            }
+          } else {
+            try {
+              // Reverse geocode coordinates to get actual location
+              console.log(`🌐 Reverse geocoding ${device.name} (${lat}, ${lon})...`);
+              const geoData = await reverseGeocode(lat, lon);
+              if (geoData) {
+                // Ensure address is a string, handle both nested object and direct string
+                let addressStr = '';
+                if (typeof geoData.address === 'string') {
+                  addressStr = geoData.address;
+                } else if (typeof geoData.city_name === 'string') {
+                  // Handle API response with city_name field
+                  addressStr = geoData.city_name;
+                } else if (typeof geoData.address === 'object' && geoData.address !== null) {
+                  // If address is an object, try to extract a display string
+                  addressStr = geoData.address.display_name || JSON.stringify(geoData.address);
+                } else {
+                  addressStr = String(geoData.address || geoData);
+                }
+                
+                if (addressStr && addressStr !== '[object Object]') {
+                  device.location = addressStr;
+                  locationCache.value.set(cacheKey, addressStr);
+                  console.log(`📍 Geocoded ${device.name} to: ${addressStr}`);
+                } else {
+                  console.warn(`⚠️ Geocoding returned invalid address for ${device.name}`);
+                }
+              } else {
+                console.warn(`⚠️ Geocoding returned no data for ${device.name}`);
+              }
+            } catch (err) {
+              console.warn(`⚠️ Could not geocode ${cacheKey}:`, err);
+              // Keep original coordinates if geocoding fails
+            }
+          }
+        } else {
+          console.log(`ℹ️ Location for ${device.name} is not coordinates: "${device.location}"`);
+        }
+      }
+      
+      console.log('✅ Location processing complete:', devices.value);
     };
     
     // Load devices on mount
@@ -283,7 +360,6 @@ export default defineComponent({
       devices,
       searchQuery,
       currentFilter,
-      showBroadcast,
       loading,
       error,
       filteredDevices,

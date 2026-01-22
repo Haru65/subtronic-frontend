@@ -72,22 +72,38 @@ export const useAuthStore = defineStore("auth", () => {
   // Initialize from stored data if available
   function initializeFromStorage() {
     try {
-      // For development/testing - always start with clean state
-      // This ensures users see the sign-in page first
       console.log('🔄 Initializing auth state...');
       
-      // Clear any existing authentication state
-      isAuthenticated.value = false;
-      user.value = defaultUser;
+      // Check if user is already logged in (token exists in localStorage)
+      const storedToken = localStorage.getItem('accessToken');
+      const storedUser = localStorage.getItem('user');
+      const storedIsAuthenticated = localStorage.getItem('isAuthenticated');
       
-      // Clear localStorage to ensure fresh start
-      localStorage.removeItem('user');
-      localStorage.removeItem('isAuthenticated');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      if (storedToken && storedUser && storedIsAuthenticated === 'true') {
+        try {
+          // Restore the user data
+          const parsedUser = JSON.parse(storedUser);
+          user.value = parsedUser;
+          isAuthenticated.value = true;
+          console.log('✅ User session restored from localStorage');
+        } catch (parseError) {
+          console.warn('Could not parse stored user data:', parseError);
+          // Fall back to requiring re-login
+          localStorage.removeItem('user');
+          localStorage.removeItem('isAuthenticated');
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          isAuthenticated.value = false;
+          user.value = defaultUser;
+        }
+      } else {
+        // No valid session found
+        console.log('⚠️ No existing session found - user must sign in');
+        isAuthenticated.value = false;
+        user.value = defaultUser;
+      }
       
-      console.log('✅ Auth state cleared - user must sign in');
-      
+      // Always restore financial year preferences
       const storedFinancialYear = localStorage.getItem('selectedFinancialYear');
       const storedFinancialYearType = localStorage.getItem('financialYearType');
 

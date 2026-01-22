@@ -14,7 +14,7 @@ export const deviceRoutes: RouteRecordRaw[] = [
   {
     path: '/devices',
     name: 'devices',
-    component: () => import('@/views/apps/iot/devices/DeviceList.vue'),
+    component: () => import('@/views/apps/iot/devices/DevicesWithZones.vue'),
     meta: {
       pageTitle: 'Devices',
       breadcrumbs: ['IOT', 'Devices'],

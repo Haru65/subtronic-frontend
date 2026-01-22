@@ -1,6 +1,6 @@
 <template>
   <tbody class="fw-semibold text-gray-700">
-    <template v-for="(row, i) in data" :key="i">
+    <template v-for="(row, i) in data" :key="row[checkboxLabel] || i">
       <tr>
         <td v-if="checkboxEnabled">
           <div
@@ -48,20 +48,27 @@ export default defineComponent({
   setup(props, { emit }) {
     const selectedItems = ref<Array<any>>([]);
 
+    // Sync with parent's currentlySelectedItems to keep checkboxes in correct state
     watch(
-      () => [...props.currentlySelectedItems],
-      (currentValue) => {
-        if (props.currentlySelectedItems.length !== 0) {
-          selectedItems.value = [
-            ...new Set([...selectedItems.value, ...currentValue]),
-          ];
-        } else {
-          selectedItems.value = [];
-        }
+      () => props.currentlySelectedItems,
+      (newValue) => {
+        console.log('🔄 TableBodyRow: Syncing from parent currentlySelectedItems:', newValue);
+        selectedItems.value = [...(newValue || [])];
+      },
+      { deep: true }
+    );
+
+    // When data changes, clear selections
+    watch(
+      () => props.data,
+      () => {
+        console.log('📊 TableBodyRow: Data changed, clearing selections');
+        selectedItems.value = [];
       }
     );
 
     const onChange = () => {
+      console.log('☑️ TableBodyRow: onChange fired, selectedItems:', selectedItems.value);
       emit("on-select", selectedItems.value);
     };
 

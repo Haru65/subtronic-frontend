@@ -69,10 +69,12 @@ export default defineComponent({
       () => props.checkboxEnabledValue,
       (currentValue) => {
         checked.value = currentValue;
-      }
+      },
+      { deep: true }
     );
 
     const selectAll = () => {
+      console.log('📋 TableHeadRow: Header checkbox clicked, checked:', checked.value);
       emit("on-select", checked.value);
     };
 

@@ -70,82 +70,47 @@
       <div v-else class="row g-6 g-xl-9">
         <div
           v-for="device in filteredDevices"
-          :key="device.deviceId"
+          :key="device.id || device.deviceId"
           class="col-md-6 col-xl-4"
         >
           <div class="card border border-2 border-gray-300 border-hover device-card h-100">
-            <div class="card-header border-0 pt-9">
+            <div class="card-header border-0 pt-6 pb-0">
               <div class="d-flex align-items-center justify-content-between w-100">
-                <div class="d-flex align-items-center">
-                  <div class="symbol symbol-50px me-3">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="symbol symbol-40px">
                     <span class="symbol-label bg-light-primary">
                       <i :class="device.icon || 'bi bi-cpu'" class="fs-2x text-primary"></i>
                     </span>
                   </div>
                   <div>
-                    <h3 class="card-title align-items-start flex-column mb-1">
-                      <span class="fw-bold text-dark fs-5">{{ device.name }}</span>
-                    </h3>
-                    <span class="text-muted fw-semibold fs-7">
-                      {{ device.location }}
-                    </span>
+                    <h5 class="mb-0 text-dark">{{ device.name }} - {{ device.deviceId }}</h5>
                   </div>
                 </div>
-                <span
-                  class="badge"
-                  :class="getStatusClass(device.status)"
-                >
-                  {{ device.status }}
-                </span>
               </div>
             </div>
-            <div class="card-body pt-5">
-              <!-- Metrics -->
-              <div class="d-flex flex-column gap-3 mb-5">
-                <div class="d-flex justify-content-between align-items-center">
-                  <span class="text-muted fs-7">
-                    <i class="bi bi-battery-charging text-success me-1"></i>
-                    Battery
-                  </span>
-                  <span class="fw-bold fs-6">
-                    {{ device.currentData?.battery || 'N/A' }}{{ device.currentData?.battery ? '%' : '' }}
-                  </span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                  <span class="text-muted fs-7">
-                    <i class="bi bi-wifi text-primary me-1"></i>
-                    Signal
-                  </span>
-                  <span class="fw-bold fs-6">
-                    {{ device.currentData?.signal || 'N/A' }}{{ device.currentData?.signal ? '%' : '' }}
-                  </span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                  <span class="text-muted fs-7">
-                    <i class="bi bi-thermometer-half text-danger me-1"></i>
-                    Temperature
-                  </span>
-                  <span class="fw-bold fs-6">
-                    {{ device.currentData?.temperature || 'N/A' }}{{ device.currentData?.temperature ? '°C' : '' }}
-                  </span>
-                </div>
-              </div>
+            <div class="card-body pt-4 pb-0">
+              <!-- Location (Geocoded) -->
+              <p class="text-dark fw-semibold fs-6 mb-3">{{ device.displayLocation || device.location || 'N/A' }}</p>
 
-              <!-- Last Seen -->
-              <div class="separator separator-dashed mb-4"></div>
-              <div class="d-flex align-items-center justify-content-between mb-4">
-                <span class="text-muted fs-7">Last Seen</span>
-                <span class="fw-semibold fs-7">{{ formatLastSeen(device.lastSeen) }}</span>
-              </div>
+              <!-- Status & Last Seen on one line -->
+              <p class="text-dark fw-semibold fs-6 mb-4">
+                <span class="badge" :class="getStatusClass(device.status)" style="margin-right: 8px;">{{ device.status }}</span>
+                <span class="text-muted">{{ formatLastSeenDetailed(device.lastSeen) }}</span>
+              </p>
 
               <!-- View Details Button -->
               <router-link
-                :to="{ name: 'device-details', params: { id: device.deviceId } }"
-                class="btn btn-sm btn-primary w-100"
+                v-if="device.id"
+                :to="{ name: 'device-details', params: { id: String(device.id) } }"
+                class="btn btn-sm btn-primary w-100 mt-3"
               >
                 <i class="bi bi-eye me-1"></i>
                 View Details
               </router-link>
+              <button v-else type="button" class="btn btn-sm btn-light w-100 mt-3" disabled title="Device ID not available">
+                <i class="bi bi-eye me-1"></i>
+                View Details
+              </button>
             </div>
           </div>
         </div>
@@ -155,7 +120,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue';
+import { defineComponent, ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import ApiService from '@/core/services/ApiService';
 
 export default defineComponent({
@@ -167,6 +132,7 @@ export default defineComponent({
     const searchQuery = ref<string>('');
     const statusFilter = ref<string>('all');
     const refreshInterval = ref<NodeJS.Timeout | null>(null);
+    const locationCache = ref<Map<string, string>>(new Map());
 
     // Fetch devices from API
     const fetchDevices = async () => {
@@ -175,16 +141,55 @@ export default defineComponent({
         ApiService.setHeader();
         const response = await ApiService.query('/api/devices', {});
         
-        if (response.data && response.data.success) {
-          devices.value = response.data.devices || [];
+        console.log('📡 API Response:', response);
+        console.log('📡 response.data:', response.data);
+        
+        // Handle API response - it returns either an array directly or { success, devices }
+        let deviceList = [];
+        if (Array.isArray(response.data)) {
+          deviceList = response.data;
+        } else if (response.data && response.data.devices) {
+          deviceList = response.data.devices;
+        } else if (response.data && response.data.success) {
+          deviceList = [];
         } else {
-          throw new Error('Failed to fetch devices');
+          deviceList = response.data || [];
         }
+        
+        console.log('📦 Device list before mapping:', deviceList);
+        
+        // Ensure each device has an id field (fallback to deviceId if needed)
+        devices.value = deviceList.map((device: any) => {
+          const mapped = {
+            ...device,
+            id: device.id || device.deviceId,
+            deviceId: device.deviceId || device.id
+          };
+          console.log('🔄 Device mapping:', { original: device, mapped });
+          return mapped;
+        });
+        
+        console.log('✅ Fetched devices:', devices.value.length);
+        if (devices.value.length > 0) {
+          console.log('📦 First device:', devices.value[0]);
+        }
+        
+        // Process location data for all devices
+        await processDeviceLocations();
       } catch (err: any) {
         console.error('Error fetching devices:', err);
         error.value = err.response?.data?.message || err.message || 'Failed to load devices';
       } finally {
         loading.value = false;
+      }
+    };
+
+    // Reverse geocoding is now handled by backend to avoid CORS issues
+    // Location data comes from server with coordinates already converted to location names
+    const processDeviceLocations = async () => {
+      for (const device of devices.value) {
+        // Just use location as provided by backend
+        device.displayLocation = device.location || 'N/A';
       }
     };
 
@@ -227,6 +232,20 @@ export default defineComponent({
       }
     };
 
+    // Get status dot color
+    const getStatusDot = (status: string) => {
+      switch (status?.toLowerCase()) {
+        case 'online':
+          return 'bg-success';
+        case 'offline':
+          return 'bg-danger';
+        case 'warning':
+          return 'bg-warning';
+        default:
+          return 'bg-secondary';
+      }
+    };
+
     // Format last seen as relative time
     const formatLastSeen = (lastSeen: string | null) => {
       if (!lastSeen) return 'Never';
@@ -243,6 +262,34 @@ export default defineComponent({
       if (diffMins < 60) return `${diffMins} min ago`;
       if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
       return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    };
+
+    // Format last seen with date and time details
+    const formatLastSeenDetailed = (lastSeen: string | null) => {
+      if (!lastSeen) return 'Never';
+      
+      const date = new Date(lastSeen);
+      const now = new Date();
+      
+      // If today, show time only
+      if (date.toDateString() === now.toDateString()) {
+        return date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+      }
+      
+      // Otherwise show date and time
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }) + ' ' + date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
     };
 
     onMounted(() => {
@@ -268,7 +315,9 @@ export default defineComponent({
       statusFilter,
       filteredDevices,
       getStatusClass,
+      getStatusDot,
       formatLastSeen,
+      formatLastSeenDetailed,
       fetchDevices
     };
   }

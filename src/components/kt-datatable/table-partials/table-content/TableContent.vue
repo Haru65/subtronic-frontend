@@ -75,6 +75,7 @@ export default defineComponent({
     watch(
       () => props.data,
       () => {
+        console.log('📊 TableContent: Data changed, resetting selections');
         selectedItems.value = [];
         allSelectedItems.value = [];
         check.value = false;
@@ -84,28 +85,35 @@ export default defineComponent({
             allSelectedItems.value.push(item[props.checkboxLabel]);
           }
         });
+        console.log('📊 TableContent: allSelectedItems rebuilt:', allSelectedItems.value);
       }
     );
 
     // eslint-disable-next-line
     const selectAll = (checked: any) => {
+      console.log('📋 TableContent: selectAll called with checked:', checked);
+      console.log('📋 TableContent: allSelectedItems:', allSelectedItems.value);
       check.value = checked;
       if (checked) {
-        selectedItems.value = [
-          ...new Set([...selectedItems.value, ...allSelectedItems.value]),
-        ];
+        // Select all items on current page
+        selectedItems.value = [...allSelectedItems.value];
+        console.log('✅ TableContent: Selected all items:', selectedItems.value);
       } else {
+        // Deselect all items
         selectedItems.value = [];
+        console.log('❌ TableContent: Deselected all items');
       }
     };
 
     //eslint-disable-next-line
     const itemsSelect = (value: any) => {
-      selectedItems.value = [];
-      //eslint-disable-next-line
-      value.forEach((item:any) => {
-        if (!selectedItems.value.includes(item)) selectedItems.value.push(item);
-      });
+      console.log('☑️ TableContent: itemsSelect called with value:', value);
+      // Update selected items with individual checkbox selections
+      selectedItems.value = value;
+      // Update header checkbox state: check only if all items are selected
+      check.value = value.length > 0 && value.length === allSelectedItems.value.length;
+      console.log('☑️ TableContent: selectedItems updated:', selectedItems.value);
+      console.log('☑️ TableContent: header check state:', check.value);
     };
 
     const onSort = (sort: Sort) => {

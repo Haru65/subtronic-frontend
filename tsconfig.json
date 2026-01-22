@@ -14,7 +14,9 @@
       ]
     },
     "types": ["node"],
-    "verbatimModuleSyntax": false
+    "verbatimModuleSyntax": true,
+    "importsNotUsedAsValues": "remove",
+    "preserveValueImports": false
   },
   "references": [
     {
