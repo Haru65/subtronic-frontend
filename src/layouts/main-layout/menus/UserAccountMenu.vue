@@ -148,7 +148,7 @@
 <script lang="ts">
 import { getAssetPath } from "@/core/helpers/assets";
 import { computed, defineComponent } from "vue";
-import { useAuthStore } from "@/stores/auth";
+// import { useAuthStore } from "@/stores/auth"; // COMMENTED OUT FOR DEVELOPMENT
 import { useRouter } from "vue-router";
 import { Identifier } from "@/core/config/WhichUserConfig";
 import { blank64 } from "./blank";
@@ -158,17 +158,28 @@ export default defineComponent({
   components: {},
   setup() {
     const router = useRouter();
-    const store = useAuthStore();
-    const User = computed(() => store.GetUser() || {
-      first_name: "",
-      last_name: "",
-      meta: {},
-      company_details: {}
-    });
+    // const store = useAuthStore(); // COMMENTED OUT FOR DEVELOPMENT
+    
+    // MOCK USER DATA FOR DEVELOPMENT
+    const User = computed(() => ({
+      first_name: "Demo",
+      last_name: "User",
+      email: "demo@example.com",
+      company_id: "1",
+      meta: {
+        profile_pic: null,
+        company_name: "Demo Company"
+      },
+      company_details: {
+        company_id: 1,
+        company_name: "Demo Company"
+      }
+    }));
 
     const signOut = () => {
-      store.logout();
-      router.push({ name: "login" });
+      // store.logout(); // COMMENTED OUT FOR DEVELOPMENT
+      // router.push({ name: "login" }); // COMMENTED OUT FOR DEVELOPMENT
+      console.log("Logout clicked - authentication disabled for development");
     };
 
     return {

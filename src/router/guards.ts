@@ -18,54 +18,55 @@ export function setupRouterGuards(router: Router): void {
   
   /**
    * Global before guard - handles authentication and permissions
+   * COMMENTED OUT FOR DEVELOPMENT - NO AUTHENTICATION REQUIRED
    */
   router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
-    const authStore = useAuthStore();
+    // const authStore = useAuthStore();
     
     // 1. Page Title Management
     const pageTitle = to.meta.pageTitle as string || 'Page';
     document.title = `${pageTitle} - ${import.meta.env.VITE_APP_NAME}`;
     
     // 2. Public routes that don't require authentication
-    const publicRoutes = ['login', 'register', 'password-reset', 'forgot-password'];
-    const isPublicRoute = publicRoutes.includes(to.name as string);
+    // const publicRoutes = ['login', 'register', 'password-reset', 'forgot-password'];
+    // const isPublicRoute = publicRoutes.includes(to.name as string);
     
-    // 3. Handle authentication requirements
-    const requiresAuth = to.meta.requiresAuth !== false; // Default to true
+    // 3. Handle authentication requirements - COMMENTED OUT
+    // const requiresAuth = to.meta.requiresAuth !== false; // Default to true
     
-    if (!isPublicRoute && requiresAuth && !authStore.isAuthenticated) {
-      // Store intended destination for redirect after login
-      sessionStorage.setItem('redirectAfterLogin', to.fullPath);
-      
-      next({ 
-        name: 'login',
-        query: { redirect: to.fullPath }
-      });
-      return;
-    }
+    // if (!isPublicRoute && requiresAuth && !authStore.isAuthenticated) {
+    //   // Store intended destination for redirect after login
+    //   sessionStorage.setItem('redirectAfterLogin', to.fullPath);
+    //   
+    //   next({ 
+    //     name: 'login',
+    //     query: { redirect: to.fullPath }
+    //   });
+    //   return;
+    // }
     
-    // 4. Redirect authenticated users away from auth pages
-    if (isPublicRoute && authStore.isAuthenticated) {
-      next({ name: 'dashboard' });
-      return;
-    }
+    // 4. Redirect authenticated users away from auth pages - COMMENTED OUT
+    // if (isPublicRoute && authStore.isAuthenticated) {
+    //   next({ name: 'dashboard' });
+    //   return;
+    // }
     
-    // 5. Permission-based access control
-    if (to.meta.permissions && Array.isArray(to.meta.permissions)) {
-      const requiredPermissions = to.meta.permissions as string[];
-      const hasPermission = await checkPermissions(requiredPermissions, authStore);
-      
-      if (!hasPermission) {
-        console.warn('Access denied - insufficient permissions:', requiredPermissions);
-        next({ 
-          name: 'dashboard',
-          query: { error: 'insufficient_permissions' }
-        });
-        return;
-      }
-    }
+    // 5. Permission-based access control - COMMENTED OUT
+    // if (to.meta.permissions && Array.isArray(to.meta.permissions)) {
+    //   const requiredPermissions = to.meta.permissions as string[];
+    //   const hasPermission = await checkPermissions(requiredPermissions, authStore);
+    //   
+    //   if (!hasPermission) {
+    //     console.warn('Access denied - insufficient permissions:', requiredPermissions);
+    //     next({ 
+    //       name: 'dashboard',
+    //       query: { error: 'insufficient_permissions' }
+    //     });
+    //     return;
+    //   }
+    // }
     
-    // 6. Allow navigation
+    // 6. Allow navigation - ALWAYS ALLOW FOR DEVELOPMENT
     next();
   });
   

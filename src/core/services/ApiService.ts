@@ -23,36 +23,36 @@ class ApiService {
     // Set default headers
     ApiService.vueInstance.axios.defaults.headers.common["Accept"] = "application/json";
     
-    // Setup request interceptor to automatically add auth token
-    ApiService.vueInstance.axios.interceptors.request.use((config) => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    }, (error) => {
-      return Promise.reject(error);
-    });
+    // Setup request interceptor to automatically add auth token - COMMENTED OUT FOR DEVELOPMENT
+    // ApiService.vueInstance.axios.interceptors.request.use((config) => {
+    //   const token = localStorage.getItem('accessToken');
+    //   if (token) {
+    //     config.headers.Authorization = `Bearer ${token}`;
+    //   }
+    //   return config;
+    // }, (error) => {
+    //   return Promise.reject(error);
+    // });
 
-    // Setup response interceptor to handle auth errors
-    ApiService.vueInstance.axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          // Unauthorized - clear tokens and redirect to login
-          console.warn('🔐 Unauthorized access - please login');
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('user');
-          localStorage.removeItem('isAuthenticated');
-          // Redirect to login page
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-        }
-        return Promise.reject(error);
-      }
-    );
+    // Setup response interceptor to handle auth errors - COMMENTED OUT FOR DEVELOPMENT
+    // ApiService.vueInstance.axios.interceptors.response.use(
+    //   (response) => response,
+    //   (error) => {
+    //     if (error.response?.status === 401) {
+    //       // Unauthorized - clear tokens and redirect to login
+    //       console.warn('🔐 Unauthorized access - please login');
+    //       localStorage.removeItem('accessToken');
+    //       localStorage.removeItem('refreshToken');
+    //       localStorage.removeItem('user');
+    //       localStorage.removeItem('isAuthenticated');
+    //       // Redirect to login page
+    //       if (window.location.pathname !== '/login') {
+    //         window.location.href = '/login';
+    //       }
+    //     }
+    //     return Promise.reject(error);
+    //   }
+    // );
   }
 
   /**

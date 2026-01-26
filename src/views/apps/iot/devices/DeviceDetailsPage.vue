@@ -340,6 +340,7 @@ import { defineComponent, ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import ApiService from '@/core/services/ApiService';
 import { useMqttClient } from '@/composables/useMqttClient';
+import { formatTime } from '@/utils/dateFormatter';
 
 interface MqttMessage {
   topic: string;

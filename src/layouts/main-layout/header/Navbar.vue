@@ -207,7 +207,7 @@ import KTThemeModeSwitcher from "@/layouts/main-layout/theme-mode/ThemeModeSwitc
 import { ThemeModeComponent } from "@/assets/ts/layout";
 import { MenuComponent } from "@/assets/ts/components";
 import { useThemeStore } from "@/stores/theme";
-import { useAuthStore } from "@/stores/auth";
+// import { useAuthStore } from "@/stores/auth"; // COMMENTED OUT FOR DEVELOPMENT
 import { useRouter } from "vue-router";
 import { calibrationNotification, maintenanceNotification } from "@/stores/api";
 import moment from "moment";
@@ -237,10 +237,25 @@ export default defineComponent({
     KTThemeModeSwitcher,
   },
   setup() {
-    const auth = useAuthStore();
+    // const auth = useAuthStore(); // COMMENTED OUT FOR DEVELOPMENT
     const store = useThemeStore();
     const router = useRouter();
-    const User = auth.GetUser();
+    // const User = auth.GetUser(); // COMMENTED OUT FOR DEVELOPMENT
+    
+    // MOCK USER DATA FOR DEVELOPMENT
+    const User = {
+      first_name: "Demo",
+      last_name: "User", 
+      email: "demo@example.com",
+      company_id: "1",
+      role_id: "1",
+      company_details: {
+        company_id: 1
+      },
+      meta: {
+        profile_pic: null
+      }
+    };
 
     const dueCalibration = ref<Instrument[]>();
     const dueMaintenance = ref<MaintenanceInstrument[]>();
@@ -325,8 +340,9 @@ export default defineComponent({
     };
 
     const signOut = () => {
-      auth.logout();
-      router.push({ name: "login" });
+      // auth.logout(); // COMMENTED OUT FOR DEVELOPMENT
+      // router.push({ name: "login" }); // COMMENTED OUT FOR DEVELOPMENT
+      console.log("Logout clicked - authentication disabled for development");
       showUserDropdown.value = false;
       
       // Also close KT menu if it's open
@@ -337,14 +353,15 @@ export default defineComponent({
     };
 
     onMounted(async () => {
-      if (User.role_id !== 7) {
-        await fetchDueCalibration();
-        await fetchDueMaintenance();
+      // NOTIFICATION FETCHING COMMENTED OUT FOR DEVELOPMENT
+      // if (User.role_id !== 7) {
+      //   await fetchDueCalibration();
+      //   await fetchDueMaintenance();
 
-        TotalNotification.value =
-          calibrationNotificationCount.value +
-          maintenanaceNotificationCount.value;
-      }
+      //   TotalNotification.value =
+      //     calibrationNotificationCount.value +
+      //     maintenanaceNotificationCount.value;
+      // }
 
       // Reinitialize menu components to ensure dropdowns work
       await nextTick();

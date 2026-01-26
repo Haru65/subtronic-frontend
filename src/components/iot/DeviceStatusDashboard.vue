@@ -82,6 +82,7 @@
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import moment from "moment";
+import { formatTime } from "@/utils/dateFormatter";
 
 interface Device {
   id: string;

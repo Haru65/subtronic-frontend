@@ -4,7 +4,7 @@ import {
   type RouteRecordRaw,
 } from "vue-router";
 import { useConfigStore } from "@/stores/config";
-import { useAuthStore } from "@/stores/auth";
+// import { useAuthStore } from "@/stores/auth"; // COMMENTED OUT FOR DEVELOPMENT
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -37,10 +37,64 @@ const routes: Array<RouteRecordRaw> = [
       {
         path: "/devices/:id",
         name: "device-details",
-        component: () => import("@/views/apps/iot/devices/DeviceDetails.vue"),
+        component: () => import("@/components/iot/DeviceDetailsModern.vue"),
         meta: {
           pageTitle: "Device Details",
           breadcrumbs: ["IOT", "Devices", "Details"],
+        },
+      },
+      {
+        path: "/devices/:id/legacy",
+        name: "device-details-legacy",
+        component: () => import("@/views/apps/iot/devices/DeviceDetails.vue"),
+        meta: {
+          pageTitle: "Device Details (Legacy)",
+          breadcrumbs: ["IOT", "Devices", "Legacy Details"],
+        },
+      },
+      {
+        path: "/devices/:deviceId/modern",
+        name: "device-details-modern",
+        component: () => import("@/components/iot/DeviceDetailsModern.vue"),
+        meta: {
+          pageTitle: "Device Details (Modern)",
+          breadcrumbs: ["IOT", "Devices", "Modern Details"],
+        },
+      },
+      {
+        path: "/devices/demo/modern",
+        name: "device-details-demo",
+        component: () => import("@/views/apps/iot/devices/ModernDeviceDetailsDemo.vue"),
+        meta: {
+          pageTitle: "Modern Device Details Demo",
+          breadcrumbs: ["IOT", "Devices", "Demo"],
+        },
+      },
+      {
+        path: "/subtronic/devices/:deviceId",
+        name: "subtronic-device-details",
+        component: () => import("@/components/iot/SubtronicDeviceDetails.vue"),
+        meta: {
+          pageTitle: "Subtronic Device Details",
+          breadcrumbs: ["IOT", "Subtronic", "Device Details"],
+        },
+      },
+      {
+        path: "/subtronics/devices/:deviceId",
+        name: "subtronics-device-details",
+        component: () => import("@/components/iot/SubtronicsDeviceDetails.vue"),
+        meta: {
+          pageTitle: "Subtronics Gas Monitor",
+          breadcrumbs: ["IOT", "Subtronics", "Gas Monitor"],
+        },
+      },
+      {
+        path: "/subtronics/demo",
+        name: "subtronics-demo",
+        component: () => import("@/views/apps/iot/devices/SubtronicsDemo.vue"),
+        meta: {
+          pageTitle: "Subtronics Demo",
+          breadcrumbs: ["IOT", "Subtronics", "Demo"],
         },
       },
       {
@@ -460,39 +514,40 @@ const routes: Array<RouteRecordRaw> = [
       },
     ],
   },
-  {
-    path: "/",
-    component: () => import("@/layouts/AuthLayout.vue"),
-    children: [
-      {
-        path: "/login",
-        name: "login",
-        component: () =>
-          import("@/views/crafted/authentication/basic-flow/SignIn.vue"),
-        meta: {
-          pageTitle: "Login",
-        },
-      },
-      {
-        path: "/register",
-        name: "register", 
-        component: () =>
-          import("@/views/crafted/authentication/basic-flow/SignUp.vue"),
-        meta: {
-          pageTitle: "Register",
-        },
-      },
-      {
-        path: "/password-reset",
-        name: "password-reset",
-        component: () =>
-          import("@/views/crafted/authentication/basic-flow/PasswordReset.vue"),
-        meta: {
-          pageTitle: "Password Reset",
-        },
-      },
-    ],
-  },
+  // AUTHENTICATION ROUTES COMMENTED OUT FOR DEVELOPMENT
+  // {
+  //   path: "/",
+  //   component: () => import("@/layouts/AuthLayout.vue"),
+  //   children: [
+  //     {
+  //       path: "/login",
+  //       name: "login",
+  //       component: () =>
+  //         import("@/views/crafted/authentication/basic-flow/SignIn.vue"),
+  //       meta: {
+  //         pageTitle: "Login",
+  //       },
+  //     },
+  //     {
+  //       path: "/register",
+  //       name: "register", 
+  //       component: () =>
+  //         import("@/views/crafted/authentication/basic-flow/SignUp.vue"),
+  //       meta: {
+  //         pageTitle: "Register",
+  //       },
+  //     },
+  //     {
+  //       path: "/password-reset",
+  //       name: "password-reset",
+  //       component: () =>
+  //         import("@/views/crafted/authentication/basic-flow/PasswordReset.vue"),
+  //       meta: {
+  //         pageTitle: "Password Reset",
+  //       },
+  //     },
+  //   ],
+  // },
   {
     path: "/:pathMatch(.*)*",
     redirect: "/",
@@ -506,7 +561,7 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   const configStore = useConfigStore();
-  const authStore = useAuthStore();
+  // const authStore = useAuthStore(); // COMMENTED OUT FOR DEVELOPMENT
 
   // current page view title
   document.title = `${to.meta.pageTitle} - ${import.meta.env.VITE_APP_NAME}`;
@@ -514,32 +569,33 @@ router.beforeEach((to, from, next) => {
   // reset config to initial state
   configStore.resetLayoutConfig();
 
-  // Routes that don't require authentication
-  const publicRoutes = ['login', 'register', 'password-reset'];
+  // Routes that don't require authentication - COMMENTED OUT FOR DEVELOPMENT
+  // const publicRoutes = ['login', 'register', 'password-reset'];
   
-  // Check if the route requires authentication
-  const requiresAuth = !publicRoutes.includes(to.name as string);
+  // Check if the route requires authentication - COMMENTED OUT FOR DEVELOPMENT
+  // const requiresAuth = !publicRoutes.includes(to.name as string);
 
-  // Handle root path routing based on authentication status
+  // Handle root path routing based on authentication status - MODIFIED FOR DEVELOPMENT
   if (to.name === 'home' || to.path === '/') {
-    if (authStore.isAuthenticated) {
-      next({ name: 'dashboard' });
-    } else {
-      next({ name: 'login' });
-    }
+    // Always redirect to dashboard for development (no auth check)
+    next({ name: 'dashboard' });
     return;
   }
 
-  if (requiresAuth && !authStore.isAuthenticated) {
-    // Redirect to login if not authenticated
-    next({ name: 'login' });
-  } else if (!requiresAuth && authStore.isAuthenticated) {
-    // Redirect to dashboard if already authenticated and trying to access auth pages
-    next({ name: 'dashboard' });
-  } else {
-    // Allow navigation
-    next();
-  }
+  // AUTHENTICATION CHECKS COMMENTED OUT FOR DEVELOPMENT
+  // if (requiresAuth && !authStore.isAuthenticated) {
+  //   // Redirect to login if not authenticated
+  //   next({ name: 'login' });
+  // } else if (!requiresAuth && authStore.isAuthenticated) {
+  //   // Redirect to dashboard if already authenticated and trying to access auth pages
+  //   next({ name: 'dashboard' });
+  // } else {
+  //   // Allow navigation
+  //   next();
+  // }
+
+  // ALWAYS ALLOW NAVIGATION FOR DEVELOPMENT
+  next();
 
   // Scroll page to top on every route change
   window.scrollTo({

@@ -329,6 +329,7 @@ import { useAuthStore } from "@/stores/auth";
 import ApiService from "@/core/services/ApiService";
 import DeviceParametersChart from "@/components/iot/component/dashboard/DeviceParametersChart.vue";
 import { reverseGeocode } from "@/utils/reverseGeocode";
+import { formatTime } from "@/utils/dateFormatter";
 
 export default defineComponent({
   name: "reports",
