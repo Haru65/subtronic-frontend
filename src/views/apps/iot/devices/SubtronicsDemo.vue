@@ -290,7 +290,8 @@ const testConnection = async () => {
     
     if (isConnected) {
       // Test MQTT status by checking health endpoint
-      const response = await fetch('http://localhost:3002/health');
+      const backendUrl = import.meta.env.VITE_SUBTRONICS_API_URL || 'http://localhost:3002';
+      const response = await fetch(`${backendUrl}/health`);
       const health = await response.json();
       mqttStatus.value = health.mqtt_connected;
     }
