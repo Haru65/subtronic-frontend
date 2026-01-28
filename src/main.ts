@@ -56,6 +56,7 @@ import { initApexCharts } from "@/core/plugins/apexcharts";
 import { initInlineSvg } from "@/core/plugins/inline-svg";
 import { initVeeValidate } from "@/core/plugins/vee-validate";
 import { initKtIcon } from "@/core/plugins/keenthemes";
+import { webSocketService } from "@/services/websocket.service";
 
 import "@/core/plugins/prismjs";
 
@@ -87,6 +88,16 @@ function trackRouteChange(toRoute, fromRoute) {
 app.use(createPinia());
 app.use(router);
 app.use(ElementPlus);
+
+// Initialize WebSocket service globally
+try {
+  webSocketService.initialize();
+  console.log('✅ WebSocket service initialized globally');
+  // Make available on window for debugging
+  (window as any).webSocketService = webSocketService;
+} catch (error) {
+  console.error('❌ Failed to initialize WebSocket service:', error);
+}
 
 ApiService.init(app);
 initApexCharts(app);

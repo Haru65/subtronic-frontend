@@ -1,5 +1,6 @@
 import { ref, onUnmounted } from 'vue';
-import mqtt, { MqttClient } from 'mqtt';
+import mqtt from 'mqtt';
+import type { MqttClient } from 'mqtt';
 
 interface MqttMessage {
   topic: string;

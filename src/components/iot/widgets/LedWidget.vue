@@ -7,7 +7,7 @@
     :loading="loading"
     @action="$emit('action', $event)"
   >
-    <template #content>
+    <template #default>
       <div class="led-widget-content">
         <!-- LED Indicator -->
         <div class="led-container">
@@ -35,10 +35,9 @@
           {{ alarmLevel.toUpperCase() }}
         </div>
       </div>
-    </template>
-    
-    <template #footer v-if="showFooter">
-      <div class="led-footer">
+      
+      <!-- Footer -->
+      <div class="led-footer" v-if="showFooter">
         <small class="text-muted">
           <i class="bi bi-clock me-1"></i>
           {{ formatTime(lastUpdate) }}
@@ -80,7 +79,7 @@ defineEmits<{
 }>();
 
 // Computed properties
-const isOn = computed(() => props.value === 1);
+const isOn = computed(() => Number(props.value) >= 1);
 
 const ledClass = computed(() => ({
   'led-on': isOn.value,
@@ -107,17 +106,10 @@ const statusText = computed(() => {
   if (props.loading) return 'Loading...';
   
   if (isOn.value) {
-    if (props.alarmLevel) {
-      switch (props.alarmLevel) {
-        case 'a1': return 'Warning Level';
-        case 'a2': return 'High Level';
-        case 'a3': return 'Critical Level';
-      }
-    }
     return 'Active';
   }
   
-  return 'Normal';
+  return 'None';
 });
 
 const statusClass = computed(() => ({

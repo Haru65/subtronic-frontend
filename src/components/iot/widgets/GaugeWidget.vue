@@ -8,44 +8,104 @@
     :show-trend="showTrend"
   >
     <template #default="{ formattedValue, severity }">
-      <div class="gauge-widget-content">
-        <!-- Gauge SVG -->
+      <div class="gauge-widget-content" :class="`size-${size}`">
+        <!-- Half Gauge SVG -->
         <div class="gauge-container">
           <svg 
-            :width="gaugeSize" 
-            :height="gaugeSize * 0.6" 
+            :viewBox="`0 0 ${viewBoxWidth} ${viewBoxHeight}`"
             class="gauge-svg"
-            :viewBox="`0 0 ${gaugeSize} ${gaugeSize * 0.6}`"
+            preserveAspectRatio="xMidYMid meet"
           >
-            <!-- Background Arc -->
+            <defs>
+              <!-- Gradient for track -->
+              <linearGradient id="trackGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="var(--bs-success)" stop-opacity="0.2"/>
+                <stop offset="50%" stop-color="var(--bs-warning)" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="var(--bs-danger)" stop-opacity="0.2"/>
+              </linearGradient>
+              
+              <!-- Drop shadow for progress -->
+              <filter id="gaugeShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.3"/>
+              </filter>
+            </defs>
+            
+            <!-- Background Track (gray) -->
             <path
-              :d="backgroundArcPath"
-              :stroke="backgroundStroke"
-              :stroke-width="strokeWidth"
+              :d="arcPath"
               fill="none"
-              class="gauge-background"
+              :stroke="'var(--gauge-track-bg, #e5e7eb)'"
+              :stroke-width="strokeWidth"
+              stroke-linecap="round"
+              class="gauge-track-bg"
+            />
+            
+            <!-- Colored Zone Track (gradient background) -->
+            <path
+              :d="arcPath"
+              fill="none"
+              stroke="url(#trackGradient)"
+              :stroke-width="strokeWidth"
+              stroke-linecap="round"
+              class="gauge-track-zones"
             />
             
             <!-- Progress Arc -->
             <path
-              :d="progressArcPath"
-              :stroke="progressStroke"
-              :stroke-width="strokeWidth"
+              :d="arcPath"
               fill="none"
+              :stroke="progressColor"
+              :stroke-width="strokeWidth"
+              :stroke-dasharray="arcLength"
+              :stroke-dashoffset="progressOffset"
+              stroke-linecap="round"
               class="gauge-progress"
-              :style="{ 
-                strokeDasharray: `${progressLength} ${totalLength}`,
-                strokeDashoffset: 0
-              }"
+              filter="url(#gaugeShadow)"
             />
+            
+            <!-- Tick Marks -->
+            <g class="gauge-ticks">
+              <line
+                v-for="tick in tickMarks"
+                :key="tick.angle"
+                :x1="tick.x1"
+                :y1="tick.y1"
+                :x2="tick.x2"
+                :y2="tick.y2"
+                :stroke="tick.isMajor ? 'var(--bs-gray-600)' : 'var(--bs-gray-400)'"
+                :stroke-width="tick.isMajor ? 2 : 1"
+                stroke-linecap="round"
+              />
+            </g>
+            
+            <!-- Min Label -->
+            <text
+              :x="minLabelPos.x"
+              :y="minLabelPos.y"
+              text-anchor="middle"
+              class="gauge-label"
+            >
+              {{ minValue }}
+            </text>
+            
+            <!-- Max Label -->
+            <text
+              :x="maxLabelPos.x"
+              :y="maxLabelPos.y"
+              text-anchor="middle"
+              class="gauge-label"
+            >
+              {{ maxValue }}
+            </text>
             
             <!-- Center Value -->
             <text
-              :x="gaugeSize / 2"
-              :y="gaugeSize * 0.45"
+              :x="centerX"
+              :y="centerY - 10"
               text-anchor="middle"
+              dominant-baseline="middle"
               class="gauge-value"
-              :class="`text-${severity}`"
+              :class="`severity-${currentSeverity}`"
             >
               {{ formattedValue }}
             </text>
@@ -53,37 +113,45 @@
             <!-- Unit -->
             <text
               v-if="widget.unit"
-              :x="gaugeSize / 2"
-              :y="gaugeSize * 0.52"
+              :x="centerX"
+              :y="centerY + 12"
               text-anchor="middle"
+              dominant-baseline="middle"
               class="gauge-unit"
             >
               {{ widget.unit }}
             </text>
+            
+            <!-- Severity Status Text -->
+            <text
+              :x="centerX"
+              :y="centerY + 30"
+              text-anchor="middle"
+              dominant-baseline="middle"
+              class="gauge-status"
+              :class="`status-${currentSeverity}`"
+            >
+              {{ severityLabel }}
+            </text>
           </svg>
         </div>
 
-        <!-- Min/Max Labels -->
-        <div class="gauge-labels">
-          <span class="gauge-min">{{ widget.min ?? 0 }}</span>
-          <span class="gauge-max">{{ widget.max ?? 100 }}</span>
-        </div>
-
-        <!-- Severity Zones -->
-        <div class="severity-zones" v-if="widget.severityLevels">
-          <div class="zone-indicators">
-            <div class="zone safe">
-              <span class="zone-dot bg-success"></span>
-              <span class="zone-label">Safe</span>
-            </div>
-            <div class="zone warning">
-              <span class="zone-dot bg-warning"></span>
-              <span class="zone-label">Warning</span>
-            </div>
-            <div class="zone critical">
-              <span class="zone-dot bg-danger"></span>
-              <span class="zone-label">Critical</span>
-            </div>
+        <!-- Severity Legend -->
+        <div class="severity-legend">
+          <div class="legend-item" :class="{ active: currentSeverity === 'safe' }">
+            <span class="legend-indicator safe"></span>
+            <span class="legend-label">Safe</span>
+            <span class="legend-range">0 - {{ safeThreshold }}</span>
+          </div>
+          <div class="legend-item" :class="{ active: currentSeverity === 'warning' }">
+            <span class="legend-indicator warning"></span>
+            <span class="legend-label">Warning</span>
+            <span class="legend-range">{{ safeThreshold }} - {{ warningThreshold }}</span>
+          </div>
+          <div class="legend-item" :class="{ active: currentSeverity === 'critical' }">
+            <span class="legend-indicator critical"></span>
+            <span class="legend-label">Critical</span>
+            <span class="legend-range">&gt; {{ warningThreshold }}</span>
           </div>
         </div>
       </div>
@@ -112,100 +180,167 @@ const props = withDefaults(defineProps<Props>(), {
   size: 'md'
 });
 
-// Gauge dimensions
-const gaugeSize = computed(() => {
-  switch (props.size) {
-    case 'sm': return 120;
-    case 'lg': return 200;
-    default: return 160;
-  }
-});
+// ============ CONFIGURATION ============
+const viewBoxWidth = 200;
+const viewBoxHeight = 120;
+const centerX = viewBoxWidth / 2;
+const centerY = 95;
+const radius = 75;
+const strokeWidth = 12;
 
-const strokeWidth = computed(() => {
-  switch (props.size) {
-    case 'sm': return 8;
-    case 'lg': return 16;
-    default: return 12;
-  }
-});
-
-// Gauge calculations
-const radius = computed(() => (gaugeSize.value - strokeWidth.value) / 2);
-const centerX = computed(() => gaugeSize.value / 2);
-const centerY = computed(() => gaugeSize.value / 2);
-
-// Arc paths (semicircle from -90° to 90°)
-const startAngle = -Math.PI / 2; // -90 degrees
-const endAngle = Math.PI / 2;    // 90 degrees
-
-const backgroundArcPath = computed(() => {
-  const x1 = centerX.value + radius.value * Math.cos(startAngle);
-  const y1 = centerY.value + radius.value * Math.sin(startAngle);
-  const x2 = centerX.value + radius.value * Math.cos(endAngle);
-  const y2 = centerY.value + radius.value * Math.sin(endAngle);
-  
-  return `M ${x1} ${y1} A ${radius.value} ${radius.value} 0 0 1 ${x2} ${y2}`;
-});
-
-// Progress calculation
+// ============ VALUE BOUNDS ============
 const minValue = computed(() => props.widget.min ?? 0);
-const maxValue = computed(() => props.widget.max ?? 100);
+const maxValue = computed(() => props.widget.max ?? 2000);
+
+// ============ THRESHOLD CONFIGURATION ============
+// Extract thresholds from widget config or use defaults for 0-2000 range
+const safeThreshold = computed(() => {
+  if (props.widget.severityLevels?.warning) {
+    const warning = props.widget.severityLevels.warning;
+    if (warning.includes('-')) {
+      return parseFloat(warning.split('-')[0].trim());
+    } else if (warning.startsWith('>')) {
+      return parseFloat(warning.substring(1));
+    }
+  }
+  // Default: 25% of max
+  return Math.round(maxValue.value * 0.25);
+});
+
+const warningThreshold = computed(() => {
+  if (props.widget.severityLevels?.critical) {
+    const critical = props.widget.severityLevels.critical;
+    if (critical.startsWith('>')) {
+      return parseFloat(critical.substring(1));
+    }
+  }
+  // Default: 50% of max
+  return Math.round(maxValue.value * 0.5);
+});
+
+// ============ VALUE CALCULATIONS ============
+const clampedValue = computed(() => {
+  const val = props.value ?? 0;
+  return Math.max(minValue.value, Math.min(maxValue.value, val));
+});
+
 const normalizedValue = computed(() => {
   const range = maxValue.value - minValue.value;
-  const clampedValue = Math.max(minValue.value, Math.min(maxValue.value, props.value));
-  return (clampedValue - minValue.value) / range;
+  if (range === 0) return 0;
+  return (clampedValue.value - minValue.value) / range;
 });
 
-const progressAngle = computed(() => {
-  return startAngle + (endAngle - startAngle) * normalizedValue.value;
-});
+// ============ SEVERITY CALCULATION ============
+type SeverityType = 'safe' | 'warning' | 'critical';
 
-const progressArcPath = computed(() => {
-  const x1 = centerX.value + radius.value * Math.cos(startAngle);
-  const y1 = centerY.value + radius.value * Math.sin(startAngle);
-  const x2 = centerX.value + radius.value * Math.cos(progressAngle.value);
-  const y2 = centerY.value + radius.value * Math.sin(progressAngle.value);
+const currentSeverity = computed((): SeverityType => {
+  const val = props.value ?? 0;
   
-  const largeArcFlag = progressAngle.value - startAngle > Math.PI ? 1 : 0;
-  
-  return `M ${x1} ${y1} A ${radius.value} ${radius.value} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
-});
-
-// Arc lengths for stroke-dasharray animation
-const totalLength = computed(() => Math.PI * radius.value); // Semicircle circumference
-const progressLength = computed(() => totalLength.value * normalizedValue.value);
-
-// Colors based on severity
-const backgroundStroke = computed(() => 'var(--bs-gray-300)');
-const progressStroke = computed(() => {
-  // Calculate severity for color
-  if (!props.widget.severityLevels) return 'var(--bs-primary)';
-  
-  const { safe, warning, critical } = props.widget.severityLevels;
-  const numValue = props.value;
-
-  // Parse critical condition
-  if (critical.startsWith('>')) {
-    const threshold = parseFloat(critical.substring(1));
-    if (numValue > threshold) return 'var(--bs-danger)';
-  } else if (critical.startsWith('<')) {
-    const threshold = parseFloat(critical.substring(1));
-    if (numValue < threshold) return 'var(--bs-danger)';
+  if (props.widget.severityLevels) {
+    const { warning, critical } = props.widget.severityLevels;
+    
+    // Check critical first
+    if (critical) {
+      if (critical.startsWith('>') && val > parseFloat(critical.substring(1))) {
+        return 'critical';
+      }
+      if (critical.startsWith('<') && val < parseFloat(critical.substring(1))) {
+        return 'critical';
+      }
+    }
+    
+    // Check warning
+    if (warning) {
+      if (warning.includes('-')) {
+        const [min, max] = warning.split('-').map(s => parseFloat(s.trim()));
+        if (val >= min && val <= max) return 'warning';
+      } else if (warning.startsWith('>') && val > parseFloat(warning.substring(1))) {
+        return 'warning';
+      } else if (warning.startsWith('<') && val < parseFloat(warning.substring(1))) {
+        return 'warning';
+      }
+    }
+    
+    return 'safe';
   }
+  
+  // Default thresholds if no config
+  if (val > warningThreshold.value) return 'critical';
+  if (val > safeThreshold.value) return 'warning';
+  return 'safe';
+});
 
-  // Parse warning condition
-  if (warning.includes('-')) {
-    const [min, max] = warning.split('-').map(s => parseFloat(s));
-    if (numValue >= min && numValue <= max) return 'var(--bs-warning)';
-  } else if (warning.startsWith('>')) {
-    const threshold = parseFloat(warning.substring(1));
-    if (numValue > threshold) return 'var(--bs-warning)';
-  } else if (warning.startsWith('<')) {
-    const threshold = parseFloat(warning.substring(1));
-    if (numValue < threshold) return 'var(--bs-warning)';
+const severityLabel = computed(() => {
+  switch (currentSeverity.value) {
+    case 'critical': return 'CRITICAL';
+    case 'warning': return 'WARNING';
+    default: return 'NORMAL';
   }
+});
 
-  return 'var(--bs-success)';
+// ============ ARC GEOMETRY ============
+// Half circle arc from left to right (180 degrees)
+const startAngle = Math.PI; // 180 degrees (left)
+const endAngle = 0; // 0 degrees (right)
+const arcLength = computed(() => Math.PI * radius); // Half circumference
+
+const arcPath = computed(() => {
+  const startX = centerX - radius;
+  const startY = centerY;
+  const endX = centerX + radius;
+  const endY = centerY;
+  
+  // Arc: M startX,startY A rx,ry rotation large-arc-flag sweep-flag endX,endY
+  return `M ${startX} ${startY} A ${radius} ${radius} 0 0 1 ${endX} ${endY}`;
+});
+
+// Progress offset (full arc length = hidden, 0 = fully visible)
+const progressOffset = computed(() => {
+  return arcLength.value * (1 - normalizedValue.value);
+});
+
+// ============ TICK MARKS ============
+const tickMarks = computed(() => {
+  const ticks = [];
+  const tickCount = 10;
+  const innerRadius = radius - strokeWidth / 2 - 4;
+  const majorTickLength = 8;
+  const minorTickLength = 4;
+  
+  for (let i = 0; i <= tickCount; i++) {
+    const angle = Math.PI - (Math.PI * i / tickCount);
+    const isMajor = i % 2 === 0;
+    const tickLength = isMajor ? majorTickLength : minorTickLength;
+    
+    const x1 = centerX + innerRadius * Math.cos(angle);
+    const y1 = centerY - innerRadius * Math.sin(angle);
+    const x2 = centerX + (innerRadius - tickLength) * Math.cos(angle);
+    const y2 = centerY - (innerRadius - tickLength) * Math.sin(angle);
+    
+    ticks.push({ angle, x1, y1, x2, y2, isMajor });
+  }
+  
+  return ticks;
+});
+
+// ============ LABEL POSITIONS ============
+const minLabelPos = computed(() => ({
+  x: centerX - radius - 5,
+  y: centerY + 15
+}));
+
+const maxLabelPos = computed(() => ({
+  x: centerX + radius + 5,
+  y: centerY + 15
+}));
+
+// ============ COLORS ============
+const progressColor = computed(() => {
+  switch (currentSeverity.value) {
+    case 'critical': return 'var(--bs-danger, #dc3545)';
+    case 'warning': return 'var(--bs-warning, #ffc107)';
+    default: return 'var(--bs-success, #198754)';
+  }
 });
 </script>
 
@@ -215,128 +350,261 @@ const progressStroke = computed(() => {
   flex-direction: column;
   align-items: center;
   width: 100%;
+  padding: 0.75rem;
+  gap: 0.75rem;
 }
 
 .gauge-container {
-  position: relative;
-  margin-bottom: 1rem;
+  width: 100%;
+  max-width: 220px;
 }
 
 .gauge-svg {
-  .gauge-background {
-    opacity: 0.3;
-  }
+  width: 100%;
+  height: auto;
+  display: block;
+}
 
-  .gauge-progress {
-    transition: stroke-dasharray 0.5s ease-in-out;
-    stroke-linecap: round;
-  }
+.gauge-track-bg {
+  opacity: 1;
+}
 
+.gauge-track-zones {
+  opacity: 0.6;
+}
+
+.gauge-progress {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.4s ease;
+}
+
+.gauge-ticks line {
+  opacity: 0.6;
+}
+
+.gauge-label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--bs-secondary, #6c757d);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.gauge-value {
+  font-size: 28px;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  fill: var(--bs-body-color, #212529);
+  transition: fill 0.3s ease;
+  
+  &.severity-safe {
+    fill: var(--bs-success, #198754);
+  }
+  
+  &.severity-warning {
+    fill: var(--bs-warning, #ffc107);
+  }
+  
+  &.severity-critical {
+    fill: var(--bs-danger, #dc3545);
+  }
+}
+
+.gauge-unit {
+  font-size: 11px;
+  font-weight: 500;
+  fill: var(--bs-secondary, #6c757d);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.gauge-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-family: system-ui, -apple-system, sans-serif;
+  transition: fill 0.3s ease;
+  
+  &.status-safe {
+    fill: var(--bs-success, #198754);
+  }
+  
+  &.status-warning {
+    fill: var(--bs-warning, #ffc107);
+  }
+  
+  &.status-critical {
+    fill: var(--bs-danger, #dc3545);
+  }
+}
+
+// Severity Legend
+.severity-legend {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 0.5rem;
+  background: var(--bs-gray-100, #f8f9fa);
+  border-radius: 8px;
+}
+
+.legend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  opacity: 0.6;
+  
+  &.active {
+    opacity: 1;
+    background: var(--bs-white, #fff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .legend-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    
+    &.safe {
+      background: var(--bs-success, #198754);
+    }
+    
+    &.warning {
+      background: var(--bs-warning, #ffc107);
+    }
+    
+    &.critical {
+      background: var(--bs-danger, #dc3545);
+    }
+  }
+  
+  .legend-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--bs-body-color, #212529);
+  }
+  
+  .legend-range {
+    font-size: 0.6rem;
+    font-weight: 500;
+    color: var(--bs-secondary, #6c757d);
+  }
+}
+
+// Size variants
+.gauge-widget-content {
+  &.size-sm {
+    .gauge-container {
+      max-width: 160px;
+    }
+    
+    .gauge-value {
+      font-size: 22px;
+    }
+    
+    .severity-legend {
+      gap: 0.5rem;
+    }
+    
+    .legend-item {
+      padding: 0.25rem 0.35rem;
+    }
+  }
+  
+  &.size-lg {
+    .gauge-container {
+      max-width: 280px;
+    }
+    
+    .gauge-value {
+      font-size: 36px;
+    }
+    
+    .gauge-unit {
+      font-size: 14px;
+    }
+    
+    .gauge-status {
+      font-size: 12px;
+    }
+  }
+}
+
+// Dark mode
+:root[data-bs-theme="dark"],
+[data-bs-theme="dark"] {
+  --gauge-track-bg: #374151;
+  
   .gauge-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    fill: var(--bs-gray-900);
-
-    &.text-safe {
+    fill: var(--bs-gray-100, #f8f9fa);
+    
+    &.severity-safe {
       fill: var(--bs-success);
     }
-
-    &.text-warning {
+    
+    &.severity-warning {
       fill: var(--bs-warning);
     }
-
-    &.text-critical {
+    
+    &.severity-critical {
       fill: var(--bs-danger);
     }
   }
-
+  
+  .gauge-label,
   .gauge-unit {
-    font-size: 0.75rem;
-    font-weight: 500;
-    fill: var(--bs-gray-600);
+    fill: var(--bs-gray-400, #adb5bd);
   }
-}
-
-.gauge-labels {
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-  font-size: 0.75rem;
-  color: var(--bs-gray-600);
-  margin-bottom: 0.75rem;
-
-  .gauge-min,
-  .gauge-max {
-    font-weight: 500;
+  
+  .severity-legend {
+    background: var(--bs-gray-800, #343a40);
   }
-}
-
-.severity-zones {
-  .zone-indicators {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-
-    .zone {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      font-size: 0.75rem;
-
-      .zone-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-      }
-
-      .zone-label {
-        color: var(--bs-gray-600);
-        font-weight: 500;
-      }
+  
+  .legend-item {
+    &.active {
+      background: var(--bs-gray-700, #495057);
     }
-  }
-}
-
-// Dark mode support
-[data-bs-theme="dark"] {
-  .gauge-svg {
-    .gauge-value {
-      fill: var(--bs-gray-100);
-
-      &.text-safe {
-        fill: var(--bs-success);
-      }
-
-      &.text-warning {
-        fill: var(--bs-warning);
-      }
-
-      &.text-critical {
-        fill: var(--bs-danger);
-      }
-    }
-
-    .gauge-unit {
-      fill: var(--bs-gray-400);
-    }
-  }
-
-  .gauge-labels {
-    color: var(--bs-gray-400);
-  }
-
-  .severity-zones .zone .zone-label {
-    color: var(--bs-gray-400);
-  }
-}
-
-// Responsive sizing
-@media (max-width: 768px) {
-  .severity-zones .zone-indicators {
-    gap: 0.5rem;
     
-    .zone {
-      font-size: 0.625rem;
+    .legend-label {
+      color: var(--bs-gray-100, #f8f9fa);
+    }
+    
+    .legend-range {
+      color: var(--bs-gray-400, #adb5bd);
+    }
+  }
+}
+
+// Animation for critical state
+@keyframes pulse-critical {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.gauge-status.status-critical {
+  animation: pulse-critical 1.5s ease-in-out infinite;
+}
+
+// Responsive
+@media (max-width: 576px) {
+  .severity-legend {
+    gap: 0.35rem;
+    padding: 0.35rem;
+  }
+  
+  .legend-item {
+    padding: 0.25rem 0.35rem;
+    
+    .legend-label {
+      font-size: 0.6rem;
+    }
+    
+    .legend-range {
+      font-size: 0.55rem;
     }
   }
 }

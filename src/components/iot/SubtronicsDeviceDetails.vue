@@ -133,6 +133,18 @@
                   :loading="refreshing"
                   @action="handleWidgetAction"
                 />
+
+                <!-- Gas Concentration Line Chart -->
+                <GasConcentrationChart
+                  :widget="gasChartWidget"
+                  :current-value="currentGasReading"
+                  :a1-level="deviceData?.a1_level ?? 250"
+                  :a2-level="deviceData?.a2_level ?? 500"
+                  :a3-level="deviceData?.a3_level ?? 1000"
+                  :last-update="deviceData?.timestamp ?? ''"
+                  :loading="refreshing"
+                  @action="handleWidgetAction"
+                />
               </div>
             </div>
 
@@ -340,79 +352,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Alerts Section -->
-        <div class="row mt-4">
-          <div class="col-12">
-            <div class="alerts-section">
-              <div class="section-header">
-                <h4 class="section-title">
-                  <i class="bi bi-exclamation-triangle me-2"></i>
-                  Active Alerts
-                </h4>
-                <div class="section-actions">
-                  <button class="btn btn-outline-primary btn-sm" @click="refreshAlerts">
-                    <i class="bi bi-arrow-clockwise me-1"></i>
-                    Refresh
-                  </button>
-                  <button 
-                    v-if="hasActiveAlerts"
-                    class="btn btn-outline-success btn-sm ms-2" 
-                    @click="acknowledgeAllAlerts"
-                  >
-                    <i class="bi bi-check-all me-1"></i>
-                    Acknowledge All
-                  </button>
-                </div>
-              </div>
-
-              <div class="alerts-list">
-                <div 
-                  v-for="alert in alerts"
-                  :key="alert.id"
-                  class="alert-item"
-                  :class="`alert-${alert.severity}`"
-                >
-                  <div class="alert-icon">
-                    <i :class="getAlertIcon(alert.type)"></i>
-                  </div>
-                  <div class="alert-content">
-                    <div class="alert-message">{{ alert.message }}</div>
-                    <div class="alert-meta">
-                      <span class="alert-time">{{ formatTime(alert.timestamp) }}</span>
-                      <span class="alert-type ms-2">{{ formatAlertType(alert.type) }}</span>
-                      <span v-if="alert.threshold" class="alert-threshold ms-2">
-                        Threshold: {{ alert.threshold }}{{ deviceData.unit }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="alert-actions" v-if="!alert.acknowledged_at">
-                    <button 
-                      class="btn btn-sm btn-outline-success"
-                      @click="acknowledgeAlert(alert.id)"
-                    >
-                      <i class="bi bi-check2 me-1"></i>
-                      Acknowledge
-                    </button>
-                  </div>
-                  <div class="alert-acknowledged" v-else>
-                    <small class="text-success">
-                      <i class="bi bi-check-circle me-1"></i>
-                      Acknowledged
-                    </small>
-                  </div>
-                </div>
-
-                <!-- Empty State -->
-                <div v-if="alerts.length === 0" class="empty-alerts">
-                  <i class="bi bi-check-circle text-success display-4"></i>
-                  <p class="mt-2 text-muted">No active alerts</p>
-                  <small class="text-muted">All systems operating normally</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -425,8 +364,10 @@ import GaugeWidget from './widgets/GaugeWidget.vue';
 import NumberWidget from './widgets/NumberWidget.vue';
 import StatusWidget from './widgets/StatusWidget.vue';
 import LedWidget from './widgets/LedWidget.vue';
+import GasConcentrationChart from './widgets/GasConcentrationChart.vue';
 import { subtronicsService } from '@/services/subtronics.service';
 import { subtronicsTemplateService } from '@/services/subtronicsTemplate.service';
+import { io, Socket } from 'socket.io-client';
 import { formatTime } from '@/utils/dateFormatter';
 import type { 
   SubtronicsDeviceData,
@@ -451,13 +392,15 @@ const loading = ref(true);
 const refreshing = ref(false);
 const error = ref<string | null>(null);
 const previousGasReading = ref<number>(0);
+let socket: Socket | null = null;
 
 // Computed properties
 const deviceIdFromRoute = computed(() => props.deviceId || route.params.deviceId as string);
 
 const currentGasReading = computed(() => {
-  // Use the actual sensor reading from the device
-  return deviceData.value?.sensor_reading || 0;
+  // The gas simulator updates the "Offset" parameter with the current gas concentration
+  // Backend normalizes this to the offset field
+  return deviceData.value?.offset ?? 0;
 });
 
 const gasTypeIcon = computed(() => {
@@ -503,6 +446,82 @@ const sensorFaultWidget = computed(() =>
   subtronicsTemplateService.getDefaultTemplate().widget_mappings.sensor_fault
 );
 
+const gasChartWidget = computed((): SubtronicsWidgetConfig => ({
+  key: 'gas_concentration_chart',
+  label: 'Gas Concentration Trend',
+  widget: 'chart',
+  unit: deviceData.value?.unit || 'ppm',
+  icon: 'bi bi-graph-up',
+  color: '#007bff'
+}));
+
+// WebSocket connection
+const connectWebSocket = () => {
+  try {
+    const backendUrl = import.meta.env.VITE_SUBTRONICS_API_URL || 'http://localhost:3002';
+    
+    console.log('🔌 Connecting to WebSocket:', backendUrl);
+    
+    socket = io(backendUrl, {
+      transports: ['polling', 'websocket'], // Start with polling, then upgrade to websocket
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 10000,
+      forceNew: true
+    });
+    
+    socket.on('connect', () => {
+      console.log('✅ WebSocket connected');
+      // Subscribe to device updates
+      socket?.emit('subscribe:device', deviceIdFromRoute.value);
+    });
+    
+    socket.on('device:data', ({ deviceId, data }) => {
+      if (deviceId === deviceIdFromRoute.value) {
+        console.log('📨 Received real-time data:', data);
+        
+        // Store previous reading
+        if (deviceData.value) {
+          previousGasReading.value = deviceData.value.offset;
+        }
+        
+        // Update device data
+        deviceData.value = data;
+      }
+    });
+    
+    socket.on('device:alerts', ({ deviceId, alerts: newAlerts }) => {
+      if (deviceId === deviceIdFromRoute.value) {
+        console.log('🚨 Received alerts:', newAlerts);
+        alerts.value = [...alerts.value, ...newAlerts];
+      }
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('❌ WebSocket disconnected');
+    });
+    
+    socket.on('connect_error', (err) => {
+      console.error('🚨 WebSocket connection error:', err.message);
+    });
+    
+    socket.on('error', (err) => {
+      console.error('🚨 WebSocket error:', err);
+    });
+  } catch (err) {
+    console.error('🚨 Failed to initialize WebSocket:', err);
+  }
+};
+
+const disconnectWebSocket = () => {
+  if (socket) {
+    socket.emit('unsubscribe:device', deviceIdFromRoute.value);
+    socket.disconnect();
+    socket = null;
+  }
+};
+
 // Methods
 const loadDevice = async () => {
   try {
@@ -534,9 +553,32 @@ const loadDevice = async () => {
 };
 
 const refreshDevice = async () => {
-  refreshing.value = true;
-  await loadDevice();
-  refreshing.value = false;
+  // Prevent multiple simultaneous refreshes
+  if (refreshing.value || loading.value) {
+    return;
+  }
+  
+  try {
+    refreshing.value = true;
+    
+    // Get device data from Subtronics API
+    const data = await subtronicsService.getLatestTelemetry(deviceIdFromRoute.value);
+    
+    // Only update if data actually changed
+    if (JSON.stringify(data) !== JSON.stringify(deviceData.value)) {
+      // Store previous reading for trend calculation
+      if (deviceData.value) {
+        previousGasReading.value = deviceData.value.offset;
+      }
+      
+      deviceData.value = data;
+    }
+  } catch (err: any) {
+    console.error('Error refreshing Subtronics device:', err);
+    // Don't show error on refresh failures, just log them
+  } finally {
+    refreshing.value = false;
+  }
 };
 
 const loadAlerts = async () => {
@@ -673,19 +715,15 @@ const handleWidgetAction = (action: string) => {
 };
 
 // Lifecycle
-onMounted(() => {
-  loadDevice();
+onMounted(async () => {
+  await loadDevice();
   
-  // Set up periodic refresh
-  const refreshInterval = setInterval(() => {
-    if (!loading.value && !refreshing.value) {
-      refreshDevice();
-    }
-  }, 30000); // Refresh every 30 seconds
-  
-  onUnmounted(() => {
-    clearInterval(refreshInterval);
-  });
+  // Connect to WebSocket for real-time updates
+  connectWebSocket();
+});
+
+onUnmounted(() => {
+  disconnectWebSocket();
 });
 </script>
 
@@ -801,8 +839,12 @@ onMounted(() => {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
+  
+  @media (max-width: 1200px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .matrix-grid {
