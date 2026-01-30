@@ -286,13 +286,41 @@
                 </h5>
               </div>
 
-              <StatusWidget
-                :widget="sensorFaultWidget"
-                :value="deviceData.sensor_fault"
-                :last-update="deviceData.timestamp"
-                :loading="refreshing"
-                @action="handleWidgetAction"
-              />
+              <div class="card">
+                <div class="card-body">
+                  <div class="status-widget-content">
+                    <!-- Status Icon -->
+                    <div class="status-icon-container" :class="`status-${sensorFaultStatus.severity}`">
+                      <div class="status-icon-wrapper">
+                        <i :class="sensorFaultStatus.icon" class="status-icon"></i>
+                      </div>
+                      <div class="status-pulse" v-if="sensorFaultStatus.severity === 'critical'"></div>
+                    </div>
+
+                    <!-- Status Text -->
+                    <div class="status-text">
+                      <div class="status-value" :class="`text-${sensorFaultStatus.severity}`">
+                        {{ sensorFaultStatus.text }}
+                      </div>
+                      <div class="status-description">
+                        {{ sensorFaultStatus.description }}
+                      </div>
+                    </div>
+
+                    <!-- Status Details -->
+                    <div class="status-details">
+                      <div class="detail-item">
+                        <span class="detail-label">Raw Value:</span>
+                        <span class="detail-value">{{ deviceData.sensor_fault }}</span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">Last Update:</span>
+                        <span class="detail-value text-muted">{{ formatTime(deviceData.timestamp) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Connection Status -->
@@ -445,6 +473,37 @@ const alarm3LedWidget = computed(() =>
 const sensorFaultWidget = computed(() => 
   subtronicsTemplateService.getDefaultTemplate().widget_mappings.sensor_fault
 );
+
+// Map sensor_fault value: 0 = ON (working), 1 = OFF (fault)
+const sensorFaultStatus = computed(() => {
+  const faultValue = deviceData.value?.sensor_fault;
+  
+  // Convert to number if it's a string
+  const numericValue = typeof faultValue === 'string' ? parseInt(faultValue, 10) : faultValue;
+  
+  if (numericValue === 0) {
+    return {
+      text: 'ON',
+      description: 'Sensor is operational',
+      icon: 'bi bi-check-circle-fill',
+      severity: 'safe'
+    };
+  } else if (numericValue === 1) {
+    return {
+      text: 'OFF',
+      description: 'Sensor fault detected',
+      icon: 'bi bi-x-circle-fill',
+      severity: 'critical'
+    };
+  } else {
+    return {
+      text: 'Unknown',
+      description: 'Sensor status unknown',
+      icon: 'bi bi-question-circle-fill',
+      severity: 'warning'
+    };
+  }
+});
 
 const gasChartWidget = computed((): SubtronicsWidgetConfig => ({
   key: 'gas_concentration_chart',
@@ -958,6 +1017,169 @@ onUnmounted(() => {
   }
 }
 
+// Sensor Status Widget Styles
+.sensor-fault-section {
+  .card {
+    background: var(--bs-white);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+  }
+
+  .card-body {
+    background: var(--bs-white);
+  }
+
+  .status-widget-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bs-white);
+  }
+
+  .status-icon-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .status-icon-wrapper {
+      width: 4rem;
+      height: 4rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+
+      .status-icon {
+        font-size: 2rem;
+      }
+    }
+
+    .status-pulse {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4rem;
+      height: 4rem;
+      border-radius: 50%;
+      z-index: 1;
+    }
+
+    // Status-specific styling
+    &.status-safe {
+      .status-icon-wrapper {
+        background: rgba(40, 167, 69, 0.1);
+        border: 2px solid #28a745;
+
+        .status-icon {
+          color: #28a745;
+        }
+      }
+    }
+
+    &.status-warning {
+      .status-icon-wrapper {
+        background: rgba(255, 193, 7, 0.1);
+        border: 2px solid #ffc107;
+
+        .status-icon {
+          color: #ffc107;
+        }
+      }
+    }
+
+    &.status-critical {
+      .status-icon-wrapper {
+        background: rgba(220, 53, 69, 0.1);
+        border: 2px solid #dc3545;
+
+        .status-icon {
+          color: #dc3545;
+        }
+      }
+
+      .status-pulse {
+        background: #dc3545;
+        animation: pulse-status 2s infinite;
+      }
+    }
+  }
+
+  .status-text {
+    text-align: center;
+
+    .status-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+
+      &.text-safe {
+        color: #28a745;
+      }
+
+      &.text-warning {
+        color: #ffc107;
+      }
+
+      &.text-critical {
+        color: #dc3545;
+      }
+    }
+
+    .status-description {
+      font-size: 0.875rem;
+      color: var(--bs-gray-600);
+      line-height: 1.4;
+    }
+  }
+
+  .status-details {
+    width: 100%;
+    border-top: 1px solid var(--bs-border-color);
+    padding-top: 1rem;
+    margin-top: 1rem;
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      font-size: 0.875rem;
+
+      .detail-label {
+        color: var(--bs-gray-600);
+        font-weight: 500;
+      }
+
+      .detail-value {
+        font-weight: 600;
+        color: var(--bs-gray-900);
+      }
+    }
+  }
+}
+
+@keyframes pulse-status {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .quality-badge {
   padding: 0.25rem 0.5rem;
   border-radius: var(--bs-border-radius-pill);
@@ -1128,6 +1350,29 @@ onUnmounted(() => {
   .connection-info .connection-item .connection-value,
   .section-header .section-title {
     color: var(--bs-gray-100);
+  }
+
+  // Keep sensor status card white even in dark mode
+  .sensor-fault-section {
+    .card,
+    .card-body,
+    .status-widget-content {
+      background: var(--bs-white) !important;
+    }
+
+    .status-text .status-description {
+      color: var(--bs-gray-600);
+    }
+
+    .status-details .detail-item {
+      .detail-label {
+        color: var(--bs-gray-600);
+      }
+
+      .detail-value {
+        color: var(--bs-gray-900);
+      }
+    }
   }
 }
 </style>

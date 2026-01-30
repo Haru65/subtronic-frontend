@@ -9,19 +9,19 @@
           (themeMode === 'dark' && layout === 'light-sidebar')
         "
         alt="Logo"
-        :src="getAssetPath('media/logos/zeptac_white_horizontal.png')"
+        :src="getAssetPath('media/logos/subtronics-logo.png')"
         class="h-25px app-sidebar-logo-default"
       />
       <img
         v-if="themeMode === 'light' && layout === 'light-sidebar'"
         alt="Logo"
-        :src="getAssetPath('media/logos/zeptac_white_horizontal.png')"
+        :src="getAssetPath('media/logos/subtronics-logo.png')"
         class="h-25px app-sidebar-logo-default"
       />
       <!-- If someone want squared logo then add a img with default logo -->
       <!-- <img
         alt="Logo"
-        :src="getAssetPath('media/logos/zeptac_white_horizontal.png')"
+        :src="getAssetPath('media/logos/subtronics-logo.png')"
         class="h-20px app-sidebar-logo-minimize"
       /> -->
     </router-link>

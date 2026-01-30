@@ -100,8 +100,8 @@
 
               <!-- View Details Button -->
               <router-link
-                v-if="device.id"
-                :to="{ name: 'device-details', params: { id: String(device.id) } }"
+                v-if="device.deviceId"
+                :to="{ name: 'subtronics-device-details', params: { deviceId: device.deviceId } }"
                 class="btn btn-sm btn-primary w-100 mt-3"
               >
                 <i class="bi bi-eye me-1"></i>

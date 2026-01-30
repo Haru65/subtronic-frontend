@@ -57,7 +57,7 @@
       
       <router-link 
         v-if="id"
-        :to="{ name: 'device-details', params: { id: String(id) }}" 
+        :to="{ name: 'subtronics-device-details', params: { deviceId: String(id) }}" 
         class="btn btn-link btn-sm text-primary p-0"
       >
         View Details

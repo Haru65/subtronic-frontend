@@ -97,223 +97,289 @@
         </div>
       </div>
     </div>
-    <!-- Filters and Data Table Section -->
-    <div class="card mb-4">
+
+    <!-- Gas Sensor Telemetry Data Section -->
+    <div class="card mt-4">
       <div class="card-header">
         <div class="d-flex align-items-center">
-          <h3 class="card-title mb-0">Telemetry Data</h3>
+          <h3 class="card-title mb-0">
+            <i class="bi bi-speedometer2 me-2"></i>
+            Gas Sensor Telemetry Data
+          </h3>
         </div>
         <div class="card-toolbar">
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <select 
-              v-model="selectedDevice" 
-              @change="loadTelemetryData" 
-              class="form-select form-select-sm" 
-              style="width: 200px;"
-            >
-              <option value="">All Devices</option>
-              <option v-for="device in devices" :key="device.deviceId" :value="device.deviceId">
-                {{ device.name }} ({{ device.deviceId }})
-              </option>
-            </select>
-            <select 
-              v-model="selectedMode" 
-              @change="loadTelemetryData"
-              class="form-select form-select-sm" 
-              style="width: 150px;"
-            >
-              <option value="">All Modes</option>
-              <option value="NORMAL">NORMAL</option>
-              <option value="INT">INT</option>
-              <option value="DPOL">DPOL</option>
-              <option value="INST">INST</option>
-            </select>
-            <input 
-              v-model="startDate" 
-              @change="loadTelemetryData" 
-              type="date" 
-              class="form-control form-control-sm" 
-              style="width: 150px;"
-            >
-            <input 
-              v-model="endDate" 
-              @change="loadTelemetryData" 
-              type="date" 
-              class="form-control form-control-sm" 
-              style="width: 150px;"
-            >
-            <select 
-              v-model="dataLimit" 
-              @change="loadTelemetryData" 
-              class="form-select form-select-sm" 
-              style="width: 120px;"
-            >
-              <option :value="50">50 records</option>
-              <option :value="100">100 records</option>
-              <option :value="500">500 records</option>
-              <option :value="1000">1000 records</option>
-            </select>
-            <button 
-              @click="loadTelemetryData" 
-              class="btn btn-sm btn-primary" 
-              :disabled="loading"
-            >
-              <i :class="loading ? 'bi bi-arrow-clockwise spinning' : 'bi bi-arrow-clockwise'"></i>
-              Refresh
-            </button>
-          </div>
+          <button 
+            @click="loadAlarmLogs" 
+            class="btn btn-sm btn-primary" 
+            :disabled="alarmLoading"
+          >
+            <i :class="alarmLoading ? 'bi bi-arrow-clockwise spinning' : 'bi bi-arrow-clockwise'"></i>
+            Refresh
+          </button>
         </div>
       </div>
       <div class="card-body">
-        <div v-if="loading" class="text-center py-5">
+        <div v-if="alarmLoading" class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <p class="mt-3 text-muted">Loading telemetry data...</p>
         </div>
         
-        <div v-else-if="telemetryData.length === 0" class="text-center py-5">
+        <div v-else-if="alarmLogs.length === 0" class="text-center py-5">
           <i class="bi bi-inbox fs-1 text-muted"></i>
           <p class="mt-3 text-muted fs-5">No telemetry data found</p>
-          <p class="text-muted">Try adjusting your filters or date range</p>
+          <p class="text-muted">Waiting for sensor readings...</p>
         </div>
 
         <div v-else>
-          <!-- Data Table with Horizontal Scroll Container -->
-          <div style="max-height: 600px; overflow-y: auto; overflow-x: auto;">
-            <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-1" style="min-width: 2000px; margin-bottom: 0;">
-              <thead style="position: sticky; top: 0; z-index: 10;">
-                <tr class="fw-bold text-muted bg-light text-nowrap">
-                  <th class="ps-4 py-3" style="min-width: 100px; position: sticky; left: 0; background: #f3f6f9; z-index: 11;">Device ID</th>
-                  <th class="py-3" style="min-width: 120px;">Location</th>
-                  <th class="py-3" style="min-width: 80px;">Status</th>
-                  <th class="py-3" style="min-width: 80px;">Log No</th>
-                  <th class="py-3" style="min-width: 160px;">Timestamp</th>
-                  <th class="py-3" style="min-width: 70px;">Mode</th>
-                  <th class="py-3" style="min-width: 70px;">ACV</th>
-                  <th class="py-3" style="min-width: 70px;">ACI</th>
-                  <th class="py-3" style="min-width: 70px;">DCV</th>
-                  <th class="py-3" style="min-width: 70px;">DCI</th>
-                  <th class="py-3" style="min-width: 70px;">Ref 1</th>
-                  <th class="py-3" style="min-width: 70px;">Ref 2</th>
-                  <th class="py-3" style="min-width: 70px;">Ref 3</th>
-                  <th class="py-3" style="min-width: 70px;">DI 1</th>
-                  <th class="py-3" style="min-width: 70px;">DI 2</th>
-                  <th class="py-3" style="min-width: 70px;">DI 3</th>
-                  <th class="py-3" style="min-width: 70px;">DI 4</th>
-                  <th class="py-3" style="min-width: 70px;">DO</th>
-                  <th class="py-3" style="min-width: 80px;">Latitude</th>
-                  <th class="py-3" style="min-width: 80px;">Longitude</th>
-                  <th class="py-3" style="min-width: 100px;">Ref Status 1</th>
-                  <th class="py-3" style="min-width: 100px;">Ref Status 2</th>
-                  <th class="py-3" style="min-width: 100px;">Ref Status 3</th>
+          <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-2">
+              <thead style="position: sticky; top: 0; z-index: 10; background: #f3f6f9;">
+                <tr class="fw-bold text-muted">
+                  <th class="ps-4 py-3">Timestamp</th>
+                  <th class="py-3">Device</th>
+                  <th class="py-3">Gas Type</th>
+                  <th class="py-3">Reading</th>
+                  <th class="py-3">Unit</th>
+                  <th class="py-3">A1 Threshold</th>
+                  <th class="py-3">A2 Threshold</th>
+                  <th class="py-3">A3 Threshold</th>
+                  <th class="py-3">Alarm Status</th>
+                  <th class="py-3">Severity</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="record in displayedData" :key="record._id" style="height: auto;">
-                  <td class="ps-4 py-1" style="position: sticky; left: 0; z-index: 9;">
-                    <span class="badge badge-light-primary">{{ record.deviceId }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span v-if="record.location" class="text-muted small">{{ formatLocation(record.location) }}</span>
-                    <span v-else class="text-muted small">-</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'status')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'logNo') || getDataField(record, 'log') || getDataField(record, 'LOG')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <div class="d-flex flex-column" style="gap: 0;">
-                      <span class="fw-bold">{{ formatDate(record.timestamp) }}</span>
-                      <span class="text-muted fs-7">{{ formatTime(record.timestamp) }}</span>
+                <tr v-for="log in alarmLogs" :key="log.id" :class="getAlarmRowClass(log.severity)">
+                  <td class="ps-4 py-2">
+                    <div class="d-flex flex-column">
+                      <span class="fw-bold">{{ formatDate(log.timestamp) }}</span>
+                      <span class="text-muted fs-7">{{ formatTime(log.timestamp) }}</span>
                     </div>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(record.event) }}</span>
+                  <td class="py-2">
+                    <div class="d-flex flex-column">
+                      <span class="fw-bold">{{ log.device_name }}</span>
+                      <span class="text-muted small">{{ log.serial_number }}</span>
+                    </div>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'acv') || getDataField(record, 'ACV')) }}</span>
+                  <td class="py-2">
+                    <span class="text-muted small">{{ log.gas_type || '-' }}</span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'aci') || getDataField(record, 'ACI')) }}</span>
+                  <td class="py-2">
+                    <span class="badge badge-light-primary fs-6">
+                      {{ log.current_value }}
+                    </span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'dcv') || getDataField(record, 'DCV')) }}</span>
+                  <td class="py-2">
+                    <span class="text-muted small">{{ log.unit }}</span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'dci') || getDataField(record, 'DCI')) }}</span>
+                  <td class="py-2">
+                    <span class="badge badge-light-warning">250 {{ log.unit }}</span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref1') || getDataField(record, 'REF1')) }}</span>
+                  <td class="py-2">
+                    <span class="badge badge-light-danger">500 {{ log.unit }}</span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref2') || getDataField(record, 'REF2')) }}</span>
+                  <td class="py-2">
+                    <span class="badge badge-light-danger">1000 {{ log.unit }}</span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref3') || getDataField(record, 'REF3')) }}</span>
+                  <td class="py-2">
+                    <span :class="getAlarmTypeBadgeClass(log.alarm_type)">
+                      {{ formatAlarmType(log.alarm_type) }}
+                    </span>
                   </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di1') || getDataField(record, 'Digital Input 1')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di2') || getDataField(record, 'Digital Input 2')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di3') || getDataField(record, 'Digital Input 3')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'di4') || getDataField(record, 'Digital Input 4')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'do') || getDataField(record, 'Digital Output')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'latitude') || getDataField(record, 'lat') || getDataField(record, 'LATITUDE')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'longitude') || getDataField(record, 'long') || getDataField(record, 'LONGITUDE')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref1Status') || getDataField(record, 'REF1Status') || getDataField(record, 'REF1 STS')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref2Status') || getDataField(record, 'REF2Status') || getDataField(record, 'REF2 STS')) }}</span>
-                  </td>
-                  <td class="py-1;">
-                    <span class="text-muted small">{{ formatDataValue(getDataField(record, 'ref3Status') || getDataField(record, 'REF3Status') || getDataField(record, 'REF3 STS')) }}</span>
+                  <td class="py-2">
+                    <span :class="getSeverityBadgeClass(log.severity)">
+                      <i :class="getSeverityIcon(log.severity)" class="me-1"></i>
+                      {{ log.severity.toUpperCase() }}
+                    </span>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
           
-          <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+          <div class="d-flex justify-content-between align-items-center mt-4">
             <span class="text-muted">
-              Showing {{ displayedData.length }} of {{ telemetryData.length }} records
+              Showing {{ alarmLogs.length}} telemetry records with alarm status
             </span>
-            <div v-if="telemetryData.length >= dataLimit" class="text-warning">
-              <i class="bi bi-info-circle"></i>
-              Limited to {{ dataLimit }} records. Use filters or export for complete data.
+            <div class="d-flex gap-2">
+              <span class="badge badge-light-warning">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{ alarmStats.by_severity?.warning || 0 }} Warning
+              </span>
+              <span class="badge badge-light-danger">
+                <i class="bi bi-exclamation-diamond me-1"></i>
+                {{ alarmStats.by_severity?.high || 0 }} High
+              </span>
+              <span class="badge badge-light-danger">
+                <i class="bi bi-exclamation-octagon me-1"></i>
+                {{ alarmStats.by_severity?.critical || 0 }} Critical
+              </span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="row g-4">
-      <div class="col-lg-12">
-        <DeviceParametersChart
-          widget-classes="card-xl-stretch mb-4"
-          :height="400"
-          :deviceFilter="selectedDevice"
-          :telemetryData="telemetryData"
-          :dateRange="{ startDate, endDate }"
-          :isLoading="loading"
-          @deviceFilterChange="onChartDeviceFilterChange"
-        />
+    <!-- Alarm Logs Section -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <div class="d-flex align-items-center justify-content-between">
+          <h3 class="card-title mb-0">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Alarm History
+          </h3>
+          <div class="d-flex align-items-center gap-3">
+            <select 
+              v-model="alarmSeverityFilter" 
+              @change="loadAlarmLogs" 
+              class="form-select form-select-sm" 
+              style="width: 150px;"
+            >
+              <option value="">All Severities</option>
+              <option value="warning">Warning</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+            <select 
+              v-model="alarmTypeFilter" 
+              @change="loadAlarmLogs" 
+              class="form-select form-select-sm" 
+              style="width: 180px;"
+            >
+              <option value="">All Alarm Types</option>
+              <option value="alarm_level_1">Alarm Level A1</option>
+              <option value="alarm_level_2">Alarm Level A2</option>
+              <option value="alarm_level_3">Alarm Level A3</option>
+              <option value="sensor_fault">Sensor Fault</option>
+            </select>
+            <button 
+              @click="loadAlarmLogs" 
+              class="btn btn-sm btn-primary" 
+              :disabled="alarmLoading"
+            >
+              <i :class="alarmLoading ? 'bi bi-arrow-clockwise spinning' : 'bi bi-arrow-clockwise'"></i>
+              Refresh
+            </button>
+            <button 
+              @click="exportAlarmLogs" 
+              class="btn btn-sm btn-success" 
+              :disabled="alarmLogs.length === 0"
+            >
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div v-if="alarmLoading" class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-3 text-muted">Loading alarm logs...</p>
+        </div>
+        
+        <div v-else-if="alarmLogs.length === 0" class="text-center py-5">
+          <i class="bi bi-shield-check fs-1 text-success"></i>
+          <p class="mt-3 text-muted fs-5">No alarms recorded</p>
+          <p class="text-muted">All systems operating normally</p>
+        </div>
+
+        <div v-else>
+          <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-2">
+              <thead style="position: sticky; top: 0; z-index: 10; background: #f3f6f9;">
+                <tr class="fw-bold text-muted">
+                  <th class="ps-4 py-3">Timestamp</th>
+                  <th class="py-3">Device</th>
+                  <th class="py-3">Alarm Type</th>
+                  <th class="py-3">Severity</th>
+                  <th class="py-3">Message</th>
+                  <th class="py-3">Threshold</th>
+                  <th class="py-3">Current Value</th>
+                  <th class="py-3">Gas Type</th>
+                  <th class="py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="log in alarmLogs" :key="log.id">
+                  <td class="ps-4 py-2">
+                    <div class="d-flex flex-column">
+                      <span class="fw-bold">{{ formatDate(log.timestamp) }}</span>
+                      <span class="text-muted fs-7">{{ formatTime(log.timestamp) }}</span>
+                    </div>
+                  </td>
+                  <td class="py-2">
+                    <div class="d-flex flex-column">
+                      <span class="fw-bold">{{ log.device_name }}</span>
+                      <span class="text-muted small">{{ log.serial_number }}</span>
+                    </div>
+                  </td>
+                  <td class="py-2">
+                    <span :class="getAlarmTypeBadgeClass(log.alarm_type)">
+                      {{ formatAlarmType(log.alarm_type) }}
+                    </span>
+                  </td>
+                  <td class="py-2">
+                    <span :class="getSeverityBadgeClass(log.severity)">
+                      {{ log.severity.toUpperCase() }}
+                    </span>
+                  </td>
+                  <td class="py-2">
+                    <span class="text-muted small">{{ log.message }}</span>
+                  </td>
+                  <td class="py-2">
+                    <span v-if="log.threshold" class="badge badge-light-info">
+                      {{ log.threshold }} {{ log.unit }}
+                    </span>
+                    <span v-else class="text-muted">-</span>
+                  </td>
+                  <td class="py-2">
+                    <span v-if="log.current_value !== undefined" class="badge badge-light-warning">
+                      {{ log.current_value }} {{ log.unit }}
+                    </span>
+                    <span v-else class="text-muted">-</span>
+                  </td>
+                  <td class="py-2">
+                    <span class="text-muted small">{{ log.gas_type || '-' }}</span>
+                  </td>
+                  <td class="py-2">
+                    <span v-if="log.acknowledged" class="badge badge-light-success">
+                      <i class="bi bi-check-circle me-1"></i>
+                      Acknowledged
+                    </span>
+                    <span v-else class="badge badge-light-danger">
+                      <i class="bi bi-exclamation-circle me-1"></i>
+                      Pending
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="d-flex justify-content-between align-items-center mt-4">
+            <span class="text-muted">
+              Showing {{ alarmLogs.length }} alarm logs
+            </span>
+            <div class="d-flex gap-2">
+              <span class="badge badge-light-warning">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                {{ alarmStats.by_severity?.warning || 0 }} Warning
+              </span>
+              <span class="badge badge-light-danger">
+                <i class="bi bi-exclamation-diamond me-1"></i>
+                {{ alarmStats.by_severity?.high || 0 }} High
+              </span>
+              <span class="badge badge-light-danger">
+                <i class="bi bi-exclamation-octagon me-1"></i>
+                {{ alarmStats.by_severity?.critical || 0 }} Critical
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -347,10 +413,17 @@ export default defineComponent({
     const selectedDevice = ref('');
     const selectedMode = ref(''); // Filter for mode types: '', 'NORMAL', 'INT', 'DEPOL', 'INST' (DEPOL is primary variant)
     const selectedEventFilter = ref(''); // Filter for event types: '', 'NORMAL', 'INT', 'DEPOL', 'INST' (DEPOL is primary variant)
-    const startDate = ref(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-    const endDate = ref(new Date().toISOString().split('T')[0]);
+    const startDate = ref(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // Last 30 days
+    const endDate = ref(new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]); // Tomorrow to catch today's data
     const dataLimit = ref(100);
     const locationCache = ref<Map<string, string>>(new Map());
+    
+    // Alarm logs state
+    const alarmLogs = ref<any[]>([]);
+    const alarmLoading = ref(false);
+    const alarmSeverityFilter = ref('');
+    const alarmTypeFilter = ref('');
+    const alarmStats = ref<any>({});
     
     // Persistent storage for event-type records (accumulate data instead of just filtering)
     const persistentNormalEvents = ref<any[]>([]);
@@ -703,26 +776,29 @@ export default defineComponent({
     // Load devices list
     const loadDevices = async () => {
       try {
-        ApiService.setHeader();
-        const response = await ApiService.get('/api/devices');
+        // COMMENTED OUT - Not needed for alarm logs only
+        // ApiService.setHeader();
+        // const response = await ApiService.get('/api/devices');
         
-        // Handle both response formats: {devices: []} or {data: []}
-        const deviceList = response.data?.devices || response.data?.data || [];
+        // // Handle both response formats: {devices: []} or {data: []}
+        // const deviceList = response.data?.devices || response.data?.data || [];
         
-        if (Array.isArray(deviceList) && deviceList.length > 0) {
-          devices.value = deviceList.filter(device => device && device.deviceId);
-          console.log('✅ Loaded', devices.value.length, 'devices');
-        } else {
-          throw new Error('No devices found');
-        }
+        // if (Array.isArray(deviceList) && deviceList.length > 0) {
+        //   devices.value = deviceList.filter(device => device && device.deviceId);
+        //   console.log('✅ Loaded', devices.value.length, 'devices');
+        // } else {
+        //   throw new Error('No devices found');
+        // }
+        
+        console.log('ℹ️ Device list loading disabled - focusing on alarm logs');
       } catch (error) {
         console.error('❌ Error loading devices:', error);
-        Swal.fire({
-          title: 'Warning',
-          text: 'Could not load devices list. You can still view all data.',
-          icon: 'warning',
-          confirmButtonText: 'OK'
-        });
+        // Swal.fire({
+        //   title: 'Warning',
+        //   text: 'Could not load devices list. You can still view all data.',
+        //   icon: 'warning',
+        //   confirmButtonText: 'OK'
+        // });
       }
     };
 
@@ -827,78 +903,74 @@ export default defineComponent({
           return;
         }
 
-        const params = new URLSearchParams({
-          startDate: startDate.value,
-          endDate: endDate.value,
-          limit: dataLimit.value.toString(),
-          sort: '-timestamp'
-        });
+        // COMMENTED OUT - Not needed for alarm logs only
+        // const params = new URLSearchParams({
+        //   startDate: startDate.value,
+        //   endDate: endDate.value,
+        //   limit: dataLimit.value.toString(),
+        //   sort: '-timestamp'
+        // });
         
-        // Add mode filter to API request for server-side filtering (more efficient)
-        if (selectedMode.value && selectedMode.value.trim() !== '') {
-          params.append('mode', selectedMode.value);
-          console.log(`📤 Sending mode filter to API: "${selectedMode.value}"`);
-        }
+        // if (selectedMode.value && selectedMode.value.trim() !== '') {
+        //   params.append('mode', selectedMode.value);
+        //   console.log(`📤 Sending mode filter to API: "${selectedMode.value}"`);
+        // }
 
-        // Note: We load data and apply server-side mode filtering for efficiency
-        // Client-side filtering still applies for device ID matching
-
-        console.log('📊 Loading telemetry data:', params.toString());
+        // console.log('📊 Loading telemetry data:', params.toString());
         
-        ApiService.setHeader();
-        const response = await ApiService.listingget('/api/telemetry', params.toString());
+        // ApiService.setHeader();
+        // const response = await ApiService.listingget('/api/telemetry', params.toString());
         
-        if (response.data?.success && Array.isArray(response.data.data)) {
-          // Filter by device client-side if a device is selected
-          let filteredData = response.data.data;
-          if (selectedDevice.value && selectedDevice.value.trim() !== '') {
-            filteredData = filteredData.filter(record => {
-              // Handle both string and number device IDs
-              const recordDeviceId = String(record.deviceId);
-              const selectedDeviceId = String(selectedDevice.value);
-              return recordDeviceId === selectedDeviceId;
-            });
-            console.log(`🔍 Filtered by device ${selectedDevice.value}: ${filteredData.length} records`);
-          }
+        // if (response.data?.success && Array.isArray(response.data.data)) {
+        //   let filteredData = response.data.data;
+        //   if (selectedDevice.value && selectedDevice.value.trim() !== '') {
+        //     filteredData = filteredData.filter(record => {
+        //       const recordDeviceId = String(record.deviceId);
+        //       const selectedDeviceId = String(selectedDevice.value);
+        //       return recordDeviceId === selectedDeviceId;
+        //     });
+        //     console.log(`🔍 Filtered by device ${selectedDevice.value}: ${filteredData.length} records`);
+        //   }
           
-          telemetryData.value = filteredData;
-          console.log('✅ Loaded', telemetryData.value.length, 'records');
+        //   telemetryData.value = filteredData;
+        //   console.log('✅ Loaded', telemetryData.value.length, 'records');
           
-          // Process locations for all records
-          await processRecordLocations();
+        //   await processRecordLocations();
           
-          // Log first record structure for debugging
-          if (telemetryData.value.length > 0) {
-            const firstRecord = telemetryData.value[0];
-            console.log('📋 First record structure:', {
-              keys: Object.keys(firstRecord),
-              sample: JSON.stringify(firstRecord, null, 2)
-            });
-          }
+        //   if (telemetryData.value.length > 0) {
+        //     const firstRecord = telemetryData.value[0];
+        //     console.log('📋 First record structure:', {
+        //       keys: Object.keys(firstRecord),
+        //       sample: JSON.stringify(firstRecord, null, 2)
+        //     });
+        //   }
           
-          if (telemetryData.value.length === 0) {
-            Swal.fire({
-              title: 'No Data Found',
-              text: 'No telemetry data found for the selected filters. Try adjusting the date range or device filter.',
-              icon: 'info',
-              confirmButtonText: 'OK',
-              timer: 3000
-            });
-          }
-        } else {
-          throw new Error('Invalid response format');
-        }
+        //   if (telemetryData.value.length === 0) {
+        //     Swal.fire({
+        //       title: 'No Data Found',
+        //       text: 'No telemetry data found for the selected filters. Try adjusting the date range or device filter.',
+        //       icon: 'info',
+        //       confirmButtonText: 'OK',
+        //       timer: 3000
+        //     });
+        //   }
+        // } else {
+        //   throw new Error('Invalid response format');
+        // }
+        
+        console.log('ℹ️ Telemetry data loading disabled - focusing on alarm logs');
+        telemetryData.value = [];
 
       } catch (error: any) {
         console.error('❌ Error loading telemetry data:', error);
         telemetryData.value = [];
         
-        Swal.fire({
-          title: 'Error Loading Data',
-          text: error.message || 'Failed to load telemetry data. Please check your connection and try again.',
-          icon: 'error',
-          confirmButtonText: 'OK'
-        });
+        // Swal.fire({
+        //   title: 'Error Loading Data',
+        //   text: error.message || 'Failed to load telemetry data. Please check your connection and try again.',
+        //   icon: 'error',
+        //   confirmButtonText: 'OK'
+        // });
       } finally {
         loading.value = false;
       }
@@ -1395,11 +1467,224 @@ export default defineComponent({
       });
     };
 
+    // Load alarm logs from backend
+    const loadAlarmLogs = async () => {
+      try {
+        alarmLoading.value = true;
+        
+        const BACKEND_URL = (import.meta.env.VITE_SUBTRONICS_API_URL || 'http://localhost:3002').replace(/\/$/, '');
+        
+        const params = new URLSearchParams({
+          start_date: startDate.value,
+          end_date: endDate.value,
+          limit: '1000'
+        });
+        
+        if (selectedDevice.value) {
+          params.append('device_id', selectedDevice.value);
+        }
+        
+        if (alarmSeverityFilter.value) {
+          params.append('severity', alarmSeverityFilter.value);
+        }
+        
+        if (alarmTypeFilter.value) {
+          params.append('alarm_type', alarmTypeFilter.value);
+        }
+        
+        console.log('📊 Loading alarm logs:', params.toString());
+        
+        const response = await fetch(`${BACKEND_URL}/alarm-logs?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        alarmLogs.value = data.logs || [];
+        
+        console.log('✅ Loaded', alarmLogs.value.length, 'alarm logs');
+        
+        // Load statistics
+        await loadAlarmStatistics();
+        
+      } catch (error: any) {
+        console.error('❌ Error loading alarm logs:', error);
+        alarmLogs.value = [];
+        
+        // Don't show error if backend is not available (optional feature)
+        if (!error.message.includes('Failed to fetch')) {
+          Swal.fire({
+            title: 'Error Loading Alarms',
+            text: error.message || 'Failed to load alarm logs.',
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
+        }
+      } finally {
+        alarmLoading.value = false;
+      }
+    };
+
+    // Load alarm statistics
+    const loadAlarmStatistics = async () => {
+      try {
+        const BACKEND_URL = (import.meta.env.VITE_SUBTRONICS_API_URL || 'http://localhost:3002').replace(/\/$/, '');
+        
+        const params = new URLSearchParams({
+          start_date: startDate.value,
+          end_date: endDate.value
+        });
+        
+        if (selectedDevice.value) {
+          params.append('device_id', selectedDevice.value);
+        }
+        
+        const response = await fetch(`${BACKEND_URL}/alarm-logs/statistics?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        alarmStats.value = await response.json();
+        
+      } catch (error: any) {
+        console.error('❌ Error loading alarm statistics:', error);
+        alarmStats.value = {};
+      }
+    };
+
+    // Format alarm type for display
+    const formatAlarmType = (type: string) => {
+      const typeMap: Record<string, string> = {
+        'alarm_level_1': 'Alarm Level A1',
+        'alarm_level_2': 'Alarm Level A2',
+        'alarm_level_3': 'Alarm Level A3',
+        'sensor_fault': 'Sensor Fault'
+      };
+      return typeMap[type] || type;
+    };
+
+    // Get badge class for alarm type
+    const getAlarmTypeBadgeClass = (type: string) => {
+      const classMap: Record<string, string> = {
+        'alarm_level_1': 'badge badge-warning',
+        'alarm_level_2': 'badge badge-danger',
+        'alarm_level_3': 'badge badge-danger',
+        'sensor_fault': 'badge badge-dark'
+      };
+      return classMap[type] || 'badge badge-secondary';
+    };
+
+    // Get badge class for severity
+    const getSeverityBadgeClass = (severity: string) => {
+      const classMap: Record<string, string> = {
+        'warning': 'badge badge-warning',
+        'high': 'badge badge-danger',
+        'critical': 'badge badge-danger'
+      };
+      return classMap[severity] || 'badge badge-secondary';
+    };
+    
+    // Get severity icon
+    const getSeverityIcon = (severity: string) => {
+      const iconMap: Record<string, string> = {
+        'warning': 'bi bi-exclamation-triangle-fill',
+        'high': 'bi bi-exclamation-diamond-fill',
+        'critical': 'bi bi-exclamation-octagon-fill'
+      };
+      return iconMap[severity] || 'bi bi-info-circle-fill';
+    };
+    
+    // Get alarm row background class
+    const getAlarmRowClass = (severity: string) => {
+      const classMap: Record<string, string> = {
+        'warning': 'table-warning',
+        'high': 'table-danger',
+        'critical': 'table-danger'
+      };
+      return classMap[severity] || '';
+    };
+
+    // Export alarm logs to CSV
+    const exportAlarmLogs = () => {
+      try {
+        if (alarmLogs.value.length === 0) {
+          Swal.fire({
+            title: 'No Data',
+            text: 'No alarm logs to export.',
+            icon: 'warning',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        const headers = [
+          'Timestamp', 'Device Name', 'Serial Number', 'Alarm Type', 'Severity',
+          'Message', 'Threshold', 'Current Value', 'Unit', 'Gas Type', 'Status'
+        ];
+
+        const rows = alarmLogs.value.map(log => [
+          new Date(log.timestamp).toLocaleString(),
+          log.device_name,
+          log.serial_number,
+          formatAlarmType(log.alarm_type),
+          log.severity.toUpperCase(),
+          log.message,
+          log.threshold || '-',
+          log.current_value !== undefined ? log.current_value : '-',
+          log.unit || '-',
+          log.gas_type || '-',
+          log.acknowledged ? 'Acknowledged' : 'Pending'
+        ]);
+
+        const csvContent = [
+          headers.map(h => `"${h}"`).join(','),
+          ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `alarm_logs_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        Swal.fire({
+          title: 'Export Successful!',
+          html: `
+            <div class="text-center">
+              <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+              <p class="mt-3">Exported ${alarmLogs.value.length} alarm logs</p>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonText: 'OK',
+          timer: 3000
+        });
+      } catch (error: any) {
+        console.error('❌ Alarm export error:', error);
+        Swal.fire({
+          title: 'Export Failed',
+          text: error.message || 'Failed to export alarm logs.',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    };
+
     // Initialize
     onMounted(async () => {
       console.log('📊 Reports module initialized');
       await loadDevices();
       await loadTelemetryData();
+      await loadAlarmLogs();
     });
 
     // Event handler for chart device filter change
@@ -1415,6 +1700,7 @@ export default defineComponent({
       exportEventReport,
       clearAccumulatedEvents,
       exportLoading,
+      exportAlarmLogs,
       
       // Data and state
       telemetryData,
@@ -1426,6 +1712,13 @@ export default defineComponent({
       endDate,
       dataLimit,
       loading,
+      
+      // Alarm logs
+      alarmLogs,
+      alarmLoading,
+      alarmSeverityFilter,
+      alarmTypeFilter,
+      alarmStats,
       
       // Computed
       totalRecords,
@@ -1442,6 +1735,7 @@ export default defineComponent({
       
       // Functions
       loadTelemetryData,
+      loadAlarmLogs,
       formatDate,
       formatTime,
       formatDataValue,
@@ -1452,6 +1746,11 @@ export default defineComponent({
       getEventValue,
       getEventTypeName,
       getEventTypeClass,
+      formatAlarmType,
+      getAlarmTypeBadgeClass,
+      getSeverityBadgeClass,
+      getSeverityIcon,
+      getAlarmRowClass,
       onChartDeviceFilterChange
     };
   },

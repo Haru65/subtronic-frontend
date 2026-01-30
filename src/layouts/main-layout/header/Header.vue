@@ -17,7 +17,7 @@
           <img
             v-if="themeMode === 'light' && layout === 'light-header'"
             alt="Logo"
-            :src="getAssetPath('media/logos/zeptac_gradient_horizontal.png')"
+            :src="getAssetPath('media/logos/subtronics-logo.png')"
             class="h-10px h-lg-20px app-sidebar-logo-default theme-light-show"
           />
           <img
@@ -26,7 +26,7 @@
               (themeMode === 'dark' && layout === 'light-header')
             "
             alt="Logo"
-            :src="getAssetPath('media/logos/zeptac_white_horizontal.png')"
+            :src="getAssetPath('media/logos/subtronics-logo.png')"
             class="h-10px h-lg-20px app-sidebar-logo-default"
           />
         </router-link>
@@ -52,13 +52,13 @@
             <img
               v-if="themeMode === 'light'"
               alt="Logo"
-              :src="getAssetPath('media/logos/zeptac_gradient_horizontal.png')"
+              :src="getAssetPath('media/logos/subtronics-logo.png')"
               class="h-20px"
             />
             <img
               v-else
               alt="Logo"
-              :src="getAssetPath('media/logos/zeptac_white_horizontal.png')"
+              :src="getAssetPath('media/logos/subtronics-logo.png')"
               class="h-20px"
             />
           </router-link>

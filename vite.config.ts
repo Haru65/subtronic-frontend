@@ -20,6 +20,10 @@ export default defineConfig({
       external: ['mqtt']
     }
   },
+  optimizeDeps: {
+    include: ['jspdf', 'jspdf-autotable', 'html2canvas'],
+    exclude: ['mqtt']
+  },
   server: {
     // Fix 404 error on refresh for SPA routing
     historyApiFallback: true,

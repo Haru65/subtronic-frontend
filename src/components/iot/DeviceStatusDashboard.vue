@@ -231,8 +231,17 @@ export default defineComponent({
     };
 
     const openDeviceDetails = (device: Device) => {
-      // Navigate to device details page
-      window.open(`/devices/${device.id}`, '_blank');
+      // Check if it's a Subtronics gas sensor device
+      const isSubtronicsDevice = device.id?.startsWith('OTSM-') || 
+                                  device.name?.toLowerCase().includes('gas sensor') ||
+                                  device.type?.toLowerCase().includes('subtronics');
+      
+      // Navigate to appropriate device details page
+      if (isSubtronicsDevice) {
+        window.open(`/subtronics/devices/${device.id}`, '_blank');
+      } else {
+        window.open(`/devices/${device.id}`, '_blank');
+      }
     };
 
     return {
